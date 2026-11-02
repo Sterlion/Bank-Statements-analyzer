@@ -302,6 +302,9 @@
                         <button id="tab-all-btn" onclick="switchTab('all')" class="tab-btn px-4 py-2 border-b-2 border-brand-600 text-brand-600 text-xs font-semibold focus:outline-none transition">
                             <i class="fa-solid fa-list-check mr-1.5"></i> All Transactions
                         </button>
+                        <button id="tab-turnover-btn" onclick="switchTab('turnover')" class="tab-btn px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-xs font-medium focus:outline-none transition">
+                            <i class="fa-solid fa-arrows-left-right-to-line mr-1.5 text-emerald-600"></i> Turnover Summary
+                        </button>
                         <button id="tab-bounce-btn" onclick="switchTab('bounce')" class="tab-btn px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-xs font-medium focus:outline-none transition">
                             <i class="fa-solid fa-triangle-exclamation mr-1.5 text-amber-600"></i> Bounces & Mandates
                         </button>
@@ -339,7 +342,75 @@
                     </table>
                 </div>
 
-                <!-- Tab 2: Cheque Bounce & Failed Mandate View -->
+                <!-- Tab 2: Total Turnover Summary Table -->
+                <div id="tab-turnover" class="tab-content hidden overflow-x-auto p-4 space-y-4">
+                    <div class="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="p-2 bg-emerald-600 text-white rounded-lg font-bold"><i class="fa-solid fa-calculator"></i></div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm">Account Turnover & Flow Analysis</h4>
+                                <p class="text-slate-600 text-[11px]">Gross volume and monthly financial activity breakdown.</p>
+                            </div>
+                        </div>
+                        <span id="turnoverStatusBadge" class="px-3 py-1 bg-emerald-600 text-white font-bold rounded-full text-[10px]">Active Stream</span>
+                    </div>
+
+                    <table class="w-full text-left border-collapse border border-slate-200 rounded-lg overflow-hidden">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-[11px] uppercase tracking-wider font-bold border-b border-slate-200">
+                                <th class="px-4 py-3">Turnover Metric</th>
+                                <th class="px-4 py-3">Description / Underwriting Context</th>
+                                <th class="px-4 py-3 text-right">Amount (₹) / Metric</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 text-xs">
+                            <tr class="hover:bg-slate-50 font-semibold bg-slate-50/50">
+                                <td class="px-4 py-3 text-slate-900 flex items-center gap-2">
+                                    <i class="fa-solid fa-arrows-rotate text-brand-600"></i> Gross Account Turnover
+                                </td>
+                                <td class="px-4 py-3 text-slate-500 font-normal">Combined sum of all credits (deposits) and debits (outflows)</td>
+                                <td id="turnoverGross" class="px-4 py-3 text-right text-brand-700 font-bold text-sm">₹0.00</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3 text-slate-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-arrow-down-left text-emerald-600"></i> Total Credit Inflow
+                                </td>
+                                <td class="px-4 py-3 text-slate-500">Total gross receipts deposited into the account</td>
+                                <td id="turnoverCredits" class="px-4 py-3 text-right text-emerald-600 font-semibold">₹0.00</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3 text-slate-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-arrow-up-right text-rose-600"></i> Total Debit Outflow
+                                </td>
+                                <td class="px-4 py-3 text-slate-500">Total gross expenses and withdrawals debited from account</td>
+                                <td id="turnoverDebits" class="px-4 py-3 text-right text-rose-600 font-semibold">₹0.00</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3 text-slate-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-scale-balanced text-indigo-600"></i> Net Surplus / Deficit
+                                </td>
+                                <td class="px-4 py-3 text-slate-500">Net retained cash flow balance (Credits minus Debits)</td>
+                                <td id="turnoverNet" class="px-4 py-3 text-right font-bold text-indigo-700">₹0.00</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3 text-slate-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-calendar-days text-purple-600"></i> Average Daily Turnover
+                                </td>
+                                <td class="px-4 py-3 text-slate-500">Normalized daily transaction volume spread across statement tenure</td>
+                                <td id="turnoverDaily" class="px-4 py-3 text-right text-purple-700 font-medium">₹0.00</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3 text-slate-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-percent text-amber-600"></i> Credit-to-Debit Turnover Ratio
+                                </td>
+                                <td class="px-4 py-3 text-slate-500">Ratio of total incoming deposits against outgoing payments (> 1.0 indicates positive cash flow)</td>
+                                <td id="turnoverRatio" class="px-4 py-3 text-right text-amber-700 font-bold">1.00x</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Tab 3: Cheque Bounce & Failed Mandate View -->
                 <div id="tab-bounce" class="tab-content hidden overflow-x-auto">
                     <div class="p-4 bg-amber-50/50 border-b border-amber-100 text-xs text-amber-800 flex items-center gap-2">
                         <i class="fa-solid fa-triangle-exclamation text-amber-600 text-base"></i>
@@ -656,6 +727,18 @@
             });
 
             const netCashFlow = totalCredits - totalDebits;
+            const grossTurnover = totalCredits + totalDebits;
+
+            // Compute turnover metric calculations
+            const dates = rawTransactions.map(t => new Date(t.date).getTime()).filter(d => !isNaN(d));
+            let daySpan = 30;
+            if (dates.length > 1) {
+                const minDate = Math.min(...dates);
+                const maxDate = Math.max(...dates);
+                daySpan = Math.max(1, Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)));
+            }
+            const avgDailyTurnover = grossTurnover / daySpan;
+            const turnoverRatio = totalDebits > 0 ? (totalCredits / totalDebits).toFixed(2) : 'N/A';
 
             // Health score base 100, penalized by bounces and negative cash flow ratio
             let healthScore = 85;
@@ -677,6 +760,25 @@
 
             const bounceEl = document.getElementById('bounceCountDisplay');
             if (bounceEl) bounceEl.innerText = bounceCount;
+
+            // Populate Turnover Summary Table
+            const turnGrossEl = document.getElementById('turnoverGross');
+            if (turnGrossEl) turnGrossEl.innerText = formatINR(grossTurnover);
+
+            const turnCredEl = document.getElementById('turnoverCredits');
+            if (turnCredEl) turnCredEl.innerText = formatINR(totalCredits);
+
+            const turnDebEl = document.getElementById('turnoverDebits');
+            if (turnDebEl) turnDebEl.innerText = formatINR(totalDebits);
+
+            const turnNetEl = document.getElementById('turnoverNet');
+            if (turnNetEl) turnNetEl.innerText = formatINR(netCashFlow);
+
+            const turnDailyEl = document.getElementById('turnoverDaily');
+            if (turnDailyEl) turnDailyEl.innerText = formatINR(avgDailyTurnover);
+
+            const turnRatioEl = document.getElementById('turnoverRatio');
+            if (turnRatioEl) turnRatioEl.innerText = `${turnoverRatio}x`;
         }
 
         // Populate dynamic category dropdown filter
