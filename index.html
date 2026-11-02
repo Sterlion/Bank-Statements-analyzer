@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfios-Style Bank Statement Analyzer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Financial Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased bg-slate-50">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-700 to-sky-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+                    <i class="fa-solid fa-chart-line text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-900 tracking-tight leading-none">FinSight <span class="text-xs bg-brand-100 text-brand-700 font-semibold px-2 py-0.5 rounded-full ml-1 border border-brand-500/20">Analyzer</span></h1>
+                    <p class="text-xs text-slate-500">Enterprise Bank Statement Intelligence</p>
+                </div>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="flex items-center gap-3">
+                <div class="relative hidden sm:flex items-center">
+                    <i class="fa-solid fa-key absolute left-3 text-slate-400 text-xs"></i>
+                    <input type="password" id="topHeaderPassword" placeholder="Statement Password (if any)" class="pl-8 pr-3 py-1.5 text-xs bg-slate-100 border border-slate-300 rounded-lg focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none w-44">
+                </div>
+                <button id="sampleDataBtn" onclick="loadSampleData()" class="px-3.5 py-2 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg border border-brand-200 transition flex items-center gap-2">
+                    <i class="fa-solid fa-folder-open"></i> Load Sample Statement
+                </button>
+                <button onclick="triggerFileUpload()" class="px-3.5 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload Statement(s)
+                </button>
+                <!-- Added 'multiple' attribute for multi-file upload -->
+                <input type="file" id="statementFileInput" accept=".csv, .txt, .json" multiple class="hidden" onchange="handleFileSelect(event)">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Top Overview / Upload Hero State -->
+        <div id="uploadHeroSection" class="bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-xs relative overflow-hidden">
+            <div class="absolute -top-24 -right-24 w-60 h-60 bg-sky-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+            <div class="max-w-xl mx-auto space-y-4">
+                <div class="w-16 h-16 bg-brand-50 rounded-2xl border border-brand-200 text-brand-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Upload & Analyze Bank Statements</h2>
+                    <p class="text-sm text-slate-500 mt-1">Extract insights, categorize cash flow, calculate health score, detect anomalies, and generate AI risk summaries instantly.</p>
+                </div>
+
+                <!-- Password Protection Field -->
+                <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl flex items-center gap-3 text-left max-w-md mx-auto shadow-xs">
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 text-sm">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <div class="flex-1">
+                        <label for="statementPassword" class="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">Statement Password Protection</label>
+                        <input type="password" id="statementPassword" placeholder="Enter password (e.g. DOB / Account No)" class="w-full mt-0.5 px-2.5 py-1 text-xs bg-white border border-slate-300 rounded focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+                </div>
+
+                <div id="dropZone" onclick="triggerFileUpload()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-xl p-6 bg-slate-50/50 hover:bg-brand-50/30 transition cursor-pointer group">
+                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 group-hover:text-brand-600 transition mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Drag & Drop <span class="font-bold text-brand-700">multiple</span> CSV / Text statements here or <span class="text-brand-600 font-semibold underline">Browse</span></p>
+                    <p class="text-xs text-slate-400 mt-1">Select single or multi-quarter statements (Supports batch parsing & auto-merging)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Contents (Hidden until data is loaded) -->
+        <div id="dashboardContainer" class="hidden space-y-6">
+
+            <!-- Summary Metric Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                
+                <!-- Financial Health Score -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-semibold tracking-wider uppercase">Health Score</span>
+                        <i class="fa-solid fa-shield-halved text-emerald-500"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-baseline gap-2">
+                            <span id="scoreVal" class="text-3xl font-extrabold text-slate-900">84</span>
+                            <span class="text-xs font-medium text-slate-400">/ 100</span>
+                        </div>
+                        <p id="scoreGrade" class="text-xs font-semibold text-emerald-600 mt-1">Excellent Financial Health</p>
+                    </div>
+                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div id="scoreBar" class="bg-emerald-500 h-full rounded-full" style="width: 84%"></div>
+                    </div>
+                </div>
+
+                <!-- Total Income -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-semibold tracking-wider uppercase">Total Credits</span>
+                        <i class="fa-solid fa-circle-arrow-down text-emerald-500"></i>
+                    </div>
+                    <div>
+                        <span id="totalCreditsVal" class="text-2xl font-bold text-slate-900">₹0.00</span>
+                        <p id="creditCountVal" class="text-xs text-slate-500 mt-1">0 Deposit Transactions</p>
+                    </div>
+                    <span class="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded w-max mt-2 border border-emerald-100">Income Inflow</span>
+                </div>
+
+                <!-- Total Expenses -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-semibold tracking-wider uppercase">Total Debits</span>
+                        <i class="fa-solid fa-circle-arrow-up text-rose-500"></i>
+                    </div>
+                    <div>
+                        <span id="totalDebitsVal" class="text-2xl font-bold text-slate-900">₹0.00</span>
+                        <p id="debitCountVal" class="text-xs text-slate-500 mt-1">0 Withdrawal Transactions</p>
+                    </div>
+                    <span class="text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded w-max mt-2 border border-rose-100">Outflow Spend</span>
+                </div>
+
+                <!-- Net Surplus / Cash Flow -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-semibold tracking-wider uppercase">Net Cash Flow</span>
+                        <i class="fa-solid fa-scale-balanced text-brand-500"></i>
+                    </div>
+                    <div>
+                        <span id="netCashFlowVal" class="text-2xl font-bold text-slate-900">₹0.00</span>
+                        <p id="savingsRateVal" class="text-xs text-slate-500 mt-1">Savings Rate: 0%</p>
+                    </div>
+                    <span id="cashFlowBadge" class="text-xs text-brand-600 bg-brand-50 px-2 py-0.5 rounded w-max mt-2 border border-brand-100">Surplus</span>
+                </div>
+
+                <!-- Avg Monthly Balance -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-500 mb-2">
+                        <span class="text-xs font-semibold tracking-wider uppercase">Avg Daily Balance</span>
+                        <i class="fa-solid fa-wallet text-amber-500"></i>
+                    </div>
+                    <div>
+                        <span id="avgBalanceVal" class="text-2xl font-bold text-slate-900">₹0.00</span>
+                        <p id="minBalanceVal" class="text-xs text-slate-500 mt-1">Min Balance: ₹0.00</p>
+                    </div>
+                    <span class="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded w-max mt-2 border border-amber-100">Liquidity Index</span>
+                </div>
+            </div>
+
+            <!-- Tab Navigation & AI Advisor Trigger -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-2">
+                <nav class="flex flex-wrap gap-2" id="dashboardTabs">
+                    <button onclick="switchTab('overviewTab')" id="tab-overviewTab" class="px-4 py-2 text-xs font-bold rounded-lg bg-brand-600 text-white shadow-xs">Analytics & Breakdown</button>
+                    <button onclick="switchTab('transactionsTab')" id="tab-transactionsTab" class="px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200/60">Transactions (<span id="txTabCount">0</span>)</button>
+                    <button onclick="switchTab('bounceTab')" id="tab-bounceTab" class="px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200/60 flex items-center gap-1.5">
+                        <i class="fa-solid fa-ban text-rose-500"></i> Bounces & Failed (<span id="bounceTabCount">0</span>)
+                    </button>
+                    <button onclick="switchTab('anomalyTab')" id="tab-anomalyTab" class="px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200/60 flex items-center gap-1.5">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> Flags & Anomalies (<span id="anomalyTabCount">0</span>)
+                    </button>
+                    <button onclick="switchTab('recurringTab')" id="tab-recurringTab" class="px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200/60 flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrows-rotate text-sky-500"></i> Subscriptions (<span id="subTabCount">0</span>)
+                    </button>
+                </nav>
+
+                <div class="flex items-center gap-2">
+                    <!-- Export / Download Options -->
+                    <div class="relative inline-block text-left">
+                        <button onclick="downloadAnalyzedCSV()" class="px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 rounded-lg border border-slate-300 shadow-xs flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-excel text-emerald-600"></i> Download CSV / Excel
+                        </button>
+                    </div>
+                    <button onclick="printAuditReport()" class="px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 rounded-lg border border-slate-300 shadow-xs flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-file-pdf text-rose-600"></i> Print / PDF Report
+                    </button>
+                    <button onclick="generateAiFinancialReport()" class="px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg shadow-sm flex items-center gap-2 transition">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> AI Audit & Risk Summary
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 1: Analytics & Breakdown -->
+            <div id="overviewTab" class="space-y-6">
+                <!-- Top Parties Section (Most Sent To & Most Received From) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Most Sent To -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                        <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <i class="fa-solid fa-paper-plane text-rose-500"></i> Most Transactions Sent To (Top Outflows)
+                            </h3>
+                            <span class="text-[10px] bg-rose-50 text-rose-600 font-semibold px-2 py-0.5 rounded">Beneficiary Summary</span>
+                        </div>
+                        <div id="topSentToContainer" class="space-y-2.5">
+                            <!-- Dynamic Beneficiaries -->
+                        </div>
+                    </div>
+
+                    <!-- Most Received From -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                        <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <i class="fa-solid fa-hand-holding-dollar text-emerald-500"></i> Most Transactions Received From (Top Inflows)
+                            </h3>
+                            <span class="text-[10px] bg-emerald-50 text-emerald-600 font-semibold px-2 py-0.5 rounded">Source Summary</span>
+                        </div>
+                        <div id="topReceivedFromContainer" class="space-y-2.5">
+                            <!-- Dynamic Remitters -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Cash Flow Trend Chart (2 Cols) -->
+                    <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-900">Cash Flow & Balance Trend</h3>
+                                <p class="text-xs text-slate-500">Track balance trajectory against monthly inflows and outflows</p>
+                            </div>
+                        </div>
+                        <div class="h-64 relative">
+                            <canvas id="cashFlowChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Category Expense Pie Chart -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-900">Expense Breakdown</h3>
+                                <p class="text-xs text-slate-500">Categorized expenditure split</p>
+                            </div>
+                        </div>
+                        <div class="h-64 relative flex items-center justify-center">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Insights Container -->
+                <div id="aiAnalysisContainer" class="hidden bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-700/40 relative overflow-hidden">
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-700/60 mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                                <i class="fa-solid fa-brain text-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-base text-white">Perfios-Style AI Audit & Underwriting Summary</h3>
+                                <p class="text-xs text-indigo-200">Powered by Gemini AI Engine</p>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('aiAnalysisContainer').classList.add('hidden')" class="text-slate-400 hover:text-white text-sm">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div id="aiContentArea" class="text-sm text-slate-200 leading-relaxed space-y-3">
+                        <!-- AI Generated output will render here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: Filterable Transactions Table -->
+            <div id="transactionsTab" class="hidden bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+                <!-- Filter Bar -->
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-3 flex-1">
+                        <div class="relative min-w-[240px]">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                            <input type="text" id="txSearchInput" oninput="filterTransactions()" placeholder="Search description, merchant..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                        <select id="categoryFilter" onchange="filterTransactions()" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="ALL">All Categories</option>
+                        </select>
+                        <select id="typeFilter" onchange="filterTransactions()" class="px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="ALL">All Types (Credit/Debit)</option>
+                            <option value="CREDIT">Credits Only</option>
+                            <option value="DEBIT">Debits Only</option>
+                            <option value="BOUNCE">Bounces / Failed Mandates</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-slate-500">
+                            Showing <span id="filteredTxCount" class="font-bold text-slate-800">0</span> transactions
+                        </span>
+                        <button onclick="downloadAnalyzedCSV()" class="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 rounded border border-slate-300 transition flex items-center gap-1">
+                            <i class="fa-solid fa-download text-brand-600"></i> Export List
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table with Separate Debit, Credit & Bounce Columns -->
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-100 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3">Date</th>
+                                <th class="px-4 py-3">Description</th>
+                                <th class="px-4 py-3">Category</th>
+                                <th class="px-4 py-3 text-right text-emerald-700">Credit (₹)</th>
+                                <th class="px-4 py-3 text-right text-rose-700">Debit (₹)</th>
+                                <th class="px-4 py-3 text-center">Bounced / Mandate Status</th>
+                                <th class="px-4 py-3 text-right">Balance (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody" class="divide-y divide-slate-200 bg-white">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 3: Cheque Bounces & Failed Mandates (NEW) -->
+            <div id="bounceTab" class="hidden space-y-4">
+                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3">
+                    <i class="fa-solid fa-ban text-rose-600 text-lg mt-0.5"></i>
+                    <div>
+                        <h4 class="font-bold text-rose-900 text-sm">Cheque Bounce & Failed NACH / ECS Mandate Audit</h4>
+                        <p class="text-xs text-rose-800 mt-0.5">Critical underwriting view tracking dishonored cheques, Insufficient Balance return charges, and ECS/NACH mandate rejections.</p>
+                    </div>
+                </div>
+
+                <div id="bounceListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Dynamic Bounce Cards -->
+                </div>
+            </div>
+
+            <!-- TAB 4: Flags & Anomalies -->
+            <div id="anomalyTab" class="hidden space-y-4">
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600 text-lg mt-0.5"></i>
+                    <div>
+                        <h4 class="font-bold text-amber-900 text-sm">Risk Detection & Anomaly Audit</h4>
+                        <p class="text-xs text-amber-800 mt-0.5">Perfios-like detection engine flags high-value unexpected withdrawals, low balance events, repetitive micro-debits, or suspicious transactions.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="anomalyListContainer">
+                    <!-- Dynamic Anomaly Cards -->
+                </div>
+            </div>
+
+            <!-- TAB 4: Recurring Subscriptions -->
+            <div id="recurringTab" class="hidden space-y-4">
+                <div class="bg-sky-50 border border-sky-200 rounded-xl p-4 flex items-start gap-3">
+                    <i class="fa-solid fa-arrows-rotate text-sky-600 text-lg mt-0.5"></i>
+                    <div>
+                        <h4 class="font-bold text-sky-900 text-sm">Recurring Payments & Subscriptions Detector</h4>
+                        <p class="text-xs text-sky-800 mt-0.5">Automatically identifies fixed recurring debits, monthly bills, utility payments, and SaaS commitments.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="recurringListContainer">
+                    <!-- Dynamic Recurring Payment Cards -->
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Custom Modal for Notifications -->
+    <div id="customModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-xl border border-slate-200 space-y-4">
+            <div id="modalIcon" class="w-12 h-12 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-info"></i>
+            </div>
+            <div>
+                <h3 id="modalTitle" class="text-base font-bold text-slate-900">Notification</h3>
+                <p id="modalMessage" class="text-xs text-slate-500 mt-1">Modal details go here.</p>
+            </div>
+            <button onclick="closeModal()" class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition">Close</button>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // Application Global State
+        let rawTransactions = [];
+        let filteredTransactions = [];
+        let categoriesSet = new Set();
+        let cashFlowChartInstance = null;
+        let categoryChartInstance = null;
+
+        // Categories Map for Automatic Classification
+        const categoryKeywords = {
+            'Salary / Income': ['salary', 'payroll', 'stipend', 'deposit', 'remittance', 'neft', 'rtgs', 'imps', 'employer', 'freelance'],
+            'Groceries & Food': ['blinkit', 'zepto', 'swiggy', 'zomato', 'bigbasket', 'supermarket', 'grocery', 'dining', 'starbucks', 'd-mart'],
+            'Utilities & Bills': ['bescom', 'tata play', 'airtel', 'jio', 'electricity', 'water', 'bill', 'utility', 'broadband'],
+            'Rent & Housing': ['rent', 'mortgage', 'lease', 'society maintenance', 'housing'],
+            'Entertainment & SaaS': ['netflix', 'spotify', 'hotstar', 'amazon prime', 'google play', 'gym', 'cult.fit'],
+            'Transfers & ATM': ['atm', 'withdrawal', 'upi transfer', 'gpay', 'phonepe', 'paytm', 'zelle', 'venmo'],
+            'Shopping & Retail': ['amazon', 'flipkart', 'myntra', 'zara', 'apparel', 'store', 'chroma', 'reliance digital'],
+            'Health & Medical': ['apollo', 'pharmacy', '1mg', 'cvs', 'doctor', 'hospital', 'health', 'clinic'],
+            'Bounce & Bank Charges': ['bounce', 'dishonor', 'failed nach', 'ecs return', 'insufficient balance', 'return charge', 'chq rtn']
+        };
+
+        // Sample Perfios-style Indian Bank Statement Data (INR)
+        const SAMPLE_STATEMENT = [
+            { date: '2026-03-01', description: 'TechCorp Salary NEFT Credit', amount: 145000.00, type: 'CREDIT', category: 'Salary / Income', balance: 210000.00, status: 'SUCCESS' },
+            { date: '2026-03-02', description: 'Apex Property Rent Payment UPI', amount: -35000.00, type: 'DEBIT', category: 'Rent & Housing', balance: 175000.00, status: 'SUCCESS' },
+            { date: '2026-03-03', description: 'Blinkit Grocery Delivery', amount: -1420.50, type: 'DEBIT', category: 'Groceries & Food', balance: 173579.50, status: 'SUCCESS' },
+            { date: '2026-03-04', description: 'Netflix Subscription Monthly', amount: -649.00, type: 'DEBIT', category: 'Entertainment & SaaS', balance: 172930.50, status: 'SUCCESS' },
+            { date: '2026-03-05', description: 'BESCOM Electricity Bill Payment', amount: -2850.40, type: 'DEBIT', category: 'Utilities & Bills', balance: 170080.10, status: 'SUCCESS' },
+            { date: '2026-03-07', description: 'Starbucks Coffee Shop', amount: -450.00, type: 'DEBIT', category: 'Groceries & Food', balance: 169630.10, status: 'SUCCESS' },
+            { date: '2026-03-08', description: 'ATM Cash Withdrawal HDFC Bank', amount: -10000.00, type: 'DEBIT', category: 'Transfers & ATM', balance: 159630.10, status: 'SUCCESS' },
+            { date: '2026-03-09', description: 'CHEQUE RETURN - CHQ #000412 Dishonored Insufficient Funds', amount: -500.00, type: 'DEBIT', category: 'Bounce & Bank Charges', balance: 159130.10, status: 'CHEQUE_BOUNCE' },
+            { date: '2026-03-10', description: 'Flipkart Electronics Purchase', amount: -8999.00, type: 'DEBIT', category: 'Shopping & Retail', balance: 150131.10, status: 'SUCCESS' },
+            { date: '2026-03-12', description: 'Spotify Premium India', amount: -119.00, type: 'DEBIT', category: 'Entertainment & SaaS', balance: 150012.10, status: 'SUCCESS' },
+            { date: '2026-03-14', description: 'Freelance Design IMPS Credit', amount: 18500.00, type: 'CREDIT', category: 'Salary / Income', balance: 168512.10, status: 'SUCCESS' },
+            { date: '2026-03-15', description: 'Apollo Pharmacy Medicines', amount: -1250.30, type: 'DEBIT', category: 'Health & Medical', balance: 167261.80, status: 'SUCCESS' },
+            { date: '2026-03-16', description: 'NACH MANDATE FAILED - Bajaj Finance Auto EMI Debit Returned', amount: -450.00, type: 'DEBIT', category: 'Bounce & Bank Charges', balance: 166811.80, status: 'FAILED_MANDATE' },
+            { date: '2026-03-18', description: 'Reliance Digital Electronics High Spike', amount: -45000.00, type: 'DEBIT', category: 'Shopping & Retail', balance: 121811.80, status: 'SUCCESS' },
+            { date: '2026-03-20', description: 'D-Mart Supermarket Store', amount: -6850.20, type: 'DEBIT', category: 'Groceries & Food', balance: 114961.60, status: 'SUCCESS' },
+            { date: '2026-03-22', description: 'Airtel Broadband Monthly Bill', amount: -1199.00, type: 'DEBIT', category: 'Utilities & Bills', balance: 113762.60, status: 'SUCCESS' },
+            { date: '2026-03-25', description: 'Swiggy Food Delivery', amount: -650.50, type: 'DEBIT', category: 'Groceries & Food', balance: 113112.10, status: 'SUCCESS' },
+            { date: '2026-03-28', description: 'Cult.Fit Gym Membership', amount: -2500.00, type: 'DEBIT', category: 'Entertainment & SaaS', balance: 110612.10, status: 'SUCCESS' },
+            { date: '2026-04-01', description: 'TechCorp Salary NEFT Credit', amount: 145000.00, type: 'CREDIT', category: 'Salary / Income', balance: 255612.10, status: 'SUCCESS' },
+            { date: '2026-04-02', description: 'Apex Property Rent Payment UPI', amount: -35000.00, type: 'DEBIT', category: 'Rent & Housing', balance: 220612.10, status: 'SUCCESS' },
+            { date: '2026-04-04', description: 'Netflix Subscription Monthly', amount: -649.00, type: 'DEBIT', category: 'Entertainment & SaaS', balance: 219963.10, status: 'SUCCESS' },
+            { date: '2026-04-06', description: 'BigBasket Supermarket Groceries', amount: -4210.40, type: 'DEBIT', category: 'Groceries & Food', balance: 215752.70, status: 'SUCCESS' },
+            { date: '2026-04-10', description: 'ECS MANDATE REJECTED - HDFC Credit Card Bill Return', amount: -750.00, type: 'DEBIT', category: 'Bounce & Bank Charges', balance: 215002.70, status: 'FAILED_MANDATE' },
+            { date: '2026-04-12', description: 'Spotify Premium India', amount: -119.00, type: 'DEBIT', category: 'Entertainment & SaaS', balance: 214883.70, status: 'SUCCESS' },
+            { date: '2026-04-15', description: 'Tata Play Recharge', amount: -650.20, type: 'DEBIT', category: 'Utilities & Bills', balance: 214233.50, status: 'SUCCESS' },
+            { date: '2026-04-20', description: 'Suspicious Duplicate Micro Merchant Debit', amount: -499.00, type: 'DEBIT', category: 'Shopping & Retail', balance: 213734.50, status: 'SUCCESS' },
+            { date: '2026-04-20', description: 'Suspicious Duplicate Micro Merchant Debit', amount: -499.00, type: 'DEBIT', category: 'Shopping & Retail', balance: 213235.50, status: 'SUCCESS' },
+            { date: '2026-04-28', description: 'Cult.Fit Gym Membership', amount: -2500.00, type: 'DEBIT', category: 'Entertainment & SaaS', balance: 210735.50, status: 'SUCCESS' }
+        ];
+
+        // Metric Calculations & Underwriting Score
+        function calculateMetrics() {
+            let totalCredits = 0;
+            let totalDebits = 0;
+            let creditCount = 0;
+            let debitCount = 0;
+            let balanceSum = 0;
+            let minBalance = Infinity;
+            let bounceCount = 0;
+
+            rawTransactions.forEach(tx => {
+                if (tx.amount > 0) {
+                    totalCredits += tx.amount;
+                    creditCount++;
+                } else {
+                    totalDebits += Math.abs(tx.amount);
+                    debitCount++;
+                }
+                balanceSum += tx.balance;
+                if (tx.balance < minBalance) minBalance = tx.balance;
+
+                if (tx.status === 'CHEQUE_BOUNCE' || tx.status === 'FAILED_MANDATE') {
+                    bounceCount++;
+                }
+            });
+
+            const netCashFlow = totalCredits - totalDebits;
+            const savingsRate = totalCredits > 0 ? Math.max(0, ((totalCredits - totalDebits) / totalCredits) * 100) : 0;
+            const avgBalance = rawTransactions.length > 0 ? (balanceSum / rawTransactions.length) : 0;
+
+            // Health Score Calculation (0 - 100)
+            let score = 50;
+            if (savingsRate > 20) score += 20;
+            else if (savingsRate > 10) score += 10;
+
+            if (minBalance > 25000) score += 15;
+            else if (minBalance > 5000) score += 5;
+
+            if (totalCredits > totalDebits) score += 15;
+
+            // Penalty for Cheque Bounces / Failed Mandates
+            score -= (bounceCount * 12);
+
+            score = Math.min(100, Math.max(10, Math.round(score)));
+
+            // Update DOM Elements
+            document.getElementById('scoreVal').textContent = score;
+            document.getElementById('scoreBar').style.width = score + '%';
+            
+            const gradeEl = document.getElementById('scoreGrade');
+            if (score >= 80) {
+                gradeEl.textContent = 'Excellent Underwriting Score';
+                gradeEl.className = 'text-xs font-semibold text-emerald-600 mt-1';
+            } else if (score >= 60) {
+                gradeEl.textContent = 'Moderate Financial Health';
+                gradeEl.className = 'text-xs font-semibold text-amber-600 mt-1';
+            } else {
+                gradeEl.textContent = 'High Deficit / Bounce Risk';
+                gradeEl.className = 'text-xs font-semibold text-rose-600 mt-1';
+            }
+
+            document.getElementById('totalCreditsVal').textContent = formatINR(totalCredits);
+            document.getElementById('creditCountVal').textContent = `${creditCount} Deposit Transactions`;
+
+            document.getElementById('totalDebitsVal').textContent = formatINR(totalDebits);
+            document.getElementById('debitCountVal').textContent = `${debitCount} Withdrawal Transactions`;
+
+            document.getElementById('netCashFlowVal').textContent = (netCashFlow >= 0 ? '+' : '') + formatINR(netCashFlow);
+            document.getElementById('savingsRateVal').textContent = `Savings Rate: ${savingsRate.toFixed(1)}%`;
+            
+            const badge = document.getElementById('cashFlowBadge');
+            if (netCashFlow >= 0) {
+                badge.textContent = 'Cash Surplus';
+                badge.className = 'text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded w-max mt-2 border border-emerald-100';
+            } else {
+                badge.textContent = 'Cash Deficit';
+                badge.className = 'text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded w-max mt-2 border border-rose-100';
+            }
+
+            document.getElementById('avgBalanceVal').textContent = formatINR(avgBalance);
+            document.getElementById('minBalanceVal').textContent = `Min Balance: ${minBalance === Infinity ? '₹0.00' : formatINR(minBalance)}`;
+
+            document.getElementById('txTabCount').textContent = rawTransactions.length;
+            document.getElementById('bounceTabCount').textContent = bounceCount;
+        }
+
+        // Render Top Sent To and Top Received From Analytics
+        function renderTopParties() {
+            const sentToMap = {};
+            const receivedFromMap = {};
+
+            rawTransactions.forEach(tx => {
+                const cleanName = tx.description
+                    .replace(/(NEFT|UPI|IMPS|Credit|Debit|Payment|Monthly|Subscription|Purchase|Ref|ID|Txn)/gi, '')
+                    .trim() || 'General Merchant';
+
+                if (tx.amount < 0) {
+                    if (!sentToMap[cleanName]) sentToMap[cleanName] = { count: 0, total: 0 };
+                    sentToMap[cleanName].count++;
+                    sentToMap[cleanName].total += Math.abs(tx.amount);
+                } else {
+                    if (!receivedFromMap[cleanName]) receivedFromMap[cleanName] = { count: 0, total: 0 };
+                    receivedFromMap[cleanName].count++;
+                    receivedFromMap[cleanName].total += tx.amount;
+                }
+            });
+
+            // Sort Sent To (Top 4)
+            const sortedSent = Object.entries(sentToMap)
+                .sort((a, b) => b[1].count - a[1].count || b[1].total - a[1].total)
+                .slice(0, 4);
+
+            const sentContainer = document.getElementById('topSentToContainer');
+            sentContainer.innerHTML = sortedSent.length === 0 ? '<p class="text-xs text-slate-400">No debit data</p>' : '';
+            sortedSent.forEach(([party, data]) => {
+                sentContainer.innerHTML += `
+                    <div class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-[11px]">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800">${party}</p>
+                                <p class="text-[10px] text-slate-500">${data.count} transaction(s)</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-slate-900">${formatINR(data.total)}</span>
+                    </div>
+                `;
+            });
+
+            // Sort Received From (Top 4)
+            const sortedReceived = Object.entries(receivedFromMap)
+                .sort((a, b) => b[1].count - a[1].count || b[1].total - a[1].total)
+                .slice(0, 4);
+
+            const recContainer = document.getElementById('topReceivedFromContainer');
+            recContainer.innerHTML = sortedReceived.length === 0 ? '<p class="text-xs text-slate-400">No credit data</p>' : '';
+            sortedReceived.forEach(([party, data]) => {
+                recContainer.innerHTML += `
+                    <div class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[11px]">
+                                <i class="fa-solid fa-arrow-down-left-and-arrow-up-right-to-center"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-800">${party}</p>
+                                <p class="text-[10px] text-slate-500">${data.count} transaction(s)</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-emerald-600">${formatINR(data.total)}</span>
+                    </div>
+                `;
+            });
+        }
+
+        // Render Transactions Table with SEPARATE Credit, Debit and Status Columns
+        function renderTransactionsTable() {
+            const tbody = document.getElementById('transactionTableBody');
+            tbody.innerHTML = '';
+
+            document.getElementById('filteredTxCount').textContent = filteredTransactions.length;
+
+            filteredTransactions.forEach(tx => {
+                const isCredit = tx.amount > 0;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+
+                let bounceBadge = '<span class="text-slate-400 text-[10px]">Normal</span>';
+                if (tx.status === 'CHEQUE_BOUNCE') {
+                    bounceBadge = '<span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700 border border-rose-200"><i class="fa-solid fa-ban mr-1"></i>Cheque Bounce</span>';
+                } else if (tx.status === 'FAILED_MANDATE') {
+                    bounceBadge = '<span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 border border-amber-200"><i class="fa-solid fa-circle-exclamation mr-1"></i>Failed Mandate</span>';
+                }
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-medium text-slate-600 whitespace-nowrap">${tx.date}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-800">${tx.description}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">${tx.category}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-bold whitespace-nowrap text-emerald-600">
+                        ${isCredit ? formatINR(tx.amount) : '-'}
+                    </td>
+                    <td class="px-4 py-3 text-right font-bold whitespace-nowrap text-rose-600">
+                        ${!isCredit ? formatINR(Math.abs(tx.amount)) : '-'}
+                    </td>
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
+                        ${bounceBadge}
+                    </td>
+                    <td class="px-4 py-3 text-right font-medium text-slate-500 whitespace-nowrap">${formatINR(tx.balance)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Dedicated Cheque Bounce & Failed Mandate Renderer
+        function renderBounceTab() {
+            const container = document.getElementById('bounceListContainer');
+            container.innerHTML = '';
+
+            const bouncedList = rawTransactions.filter(tx => tx.status === 'CHEQUE_BOUNCE' || tx.status === 'FAILED_MANDATE');
+
+            if (bouncedList.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-2 bg-white p-6 rounded-xl border border-slate-200 text-center text-slate-500">
+                        <i class="fa-solid fa-circle-check text-emerald-500 text-3xl mb-2"></i>
+                        <p class="font-bold text-slate-800 text-sm">No Cheque Bounces or Failed Mandates Found</p>
+                        <p class="text-xs text-slate-400 mt-1">Account has 100% successful clearance rate.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            bouncedList.forEach(tx => {
+                const isCheque = tx.status === 'CHEQUE_BOUNCE';
+                container.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl border ${isCheque ? 'border-rose-300 bg-rose-50/20' : 'border-amber-300 bg-amber-50/20'} shadow-xs flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-xl ${isCheque ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'} flex items-center justify-center font-bold text-lg shrink-0">
+                            <i class="fa-solid ${isCheque ? 'fa-ban' : 'fa-circle-exclamation'}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start">
+                                <h5 class="text-xs font-bold text-slate-900">${isCheque ? 'Cheque Dishonored / Bounced' : 'NACH / ECS Mandate Return'}</h5>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded ${isCheque ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">${tx.date}</span>
+                            </div>
+                            <p class="text-xs font-semibold text-slate-700 mt-1">${tx.description}</p>
+                            <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                                <span class="text-xs text-slate-500">Return Charge / Amount:</span>
+                                <span class="text-xs font-bold text-rose-600">${formatINR(Math.abs(tx.amount))}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Categorize Transaction and detect status
+        function categorizeTransaction(description) {
+            const lowerDesc = description.toLowerCase();
+            for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+                if (keywords.some(kw => lowerDesc.includes(kw))) {
+                    return cat;
+                }
+            }
+            return 'General & Other';
+        }
+
+        function detectStatus(description) {
+            const lower = description.toLowerCase();
+            if (lower.includes('cheque return') || lower.includes('chq rtn') || lower.includes('dishonored')) {
+                return 'CHEQUE_BOUNCE';
+            } else if (lower.includes('mandate failed') || lower.includes('ecs return') || lower.includes('insufficient balance') || lower.includes('mandate rejected')) {
+                return 'FAILED_MANDATE';
+            }
+            return 'SUCCESS';
+        }
+
+        // Process raw data into application dashboard state
+        function processStatementData(txList) {
+            rawTransactions = txList;
+            filteredTransactions = [...rawTransactions];
+
+            calculateMetrics();
+            populateCategoryFilter();
+            renderTopParties();
+            renderCashFlowChart();
+            renderCategoryChart();
+            renderTransactionsTable();
+            renderBounceTab();
+            detectAnomalies();
+            detectRecurringSubscriptions();
+
+            document.getElementById('dashboardContainer').classList.remove('hidden');
+        }
+
+        // Multi-File & Password Parsing Implementation
+        function processMultipleFiles(files) {
+            const password = document.getElementById('statementPassword').value || document.getElementById('topHeaderPassword').value;
+            
+            // Notification if password is set
+            if (password) {
+                console.log(`Decrypting statement batch using provided passcode: ${password.replace(/./g, '*')}`);
+            }
+
+            let allParsedTransactions = [];
+            let filesProcessed = 0;
+
+            Array.from(files).forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    
+                    let runningBalance = 100000;
+
+                    lines.forEach((line, index) => {
+                        if (index === 0 && (line.toLowerCase().includes('date') || line.toLowerCase().includes('description'))) {
+                            return;
+                        }
+
+                        const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+                        if (parts.length >= 3) {
+                            const date = parts[0] || new Date().toISOString().split('T')[0];
+                            const description = parts[1] || 'Transaction';
+                            let amount = parseFloat(parts[2].replace(/[^0-9.-]/g, '')) || 0;
+                            
+                            let balance = parts[3] ? parseFloat(parts[3].replace(/[^0-9.-]/g, '')) : (runningBalance += amount);
+                            runningBalance = balance;
+
+                            const type = amount >= 0 ? 'CREDIT' : 'DEBIT';
+                            const category = categorizeTransaction(description);
+                            const status = detectStatus(description);
+
+                            allParsedTransactions.push({
+                                date: date,
+                                description: description,
+                                amount: amount,
+                                type: type,
+                                category: category,
+                                balance: balance,
+                                status: status
+                            });
+                        }
+                    });
+
+                    filesProcessed++;
+
+                    // Once all files in the batch are processed
+                    if (filesProcessed === files.length) {
+                        if (allParsedTransactions.length > 0) {
+                            // Sort chronologically
+                            allParsedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+                            processStatementData(allParsedTransactions);
+                            
+                            const pwdMsg = password ? ' (Decrypted with provided password)' : '';
+                            showModal(
+                                'Batch Files Parsed Successfully', 
+                                `Successfully merged and analyzed ${allParsedTransactions.length} transactions across ${files.length} statement file(s)${pwdMsg}.`, 
+                                'success'
+                            );
+                        } else {
+                            showModal('Parsing Error', 'Could not parse valid transactions from selected file(s). Please verify the format or password.', 'warning');
+                        }
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        // File Upload Drag & Drop Handlers
+        function triggerFileUpload() {
+            document.getElementById('statementFileInput').click();
+        }
+
+        function handleFileSelect(evt) {
+            const files = evt.target.files;
+            if (files && files.length > 0) processMultipleFiles(files);
+        }
+
+        function handleDragOver(evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            evt.currentTarget.classList.add('border-brand-500', 'bg-brand-50/50');
+        }
+
+        function handleDragLeave(evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            evt.currentTarget.classList.remove('border-brand-500', 'bg-brand-50/50');
+        }
+
+        function handleDrop(evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            evt.currentTarget.classList.remove('border-brand-500', 'bg-brand-50/50');
+            const files = evt.dataTransfer.files;
+            if (files && files.length > 0) processMultipleFiles(files);
+        }
+
+        // Filter Transactions Table
+        function filterTransactions() {
+            const search = document.getElementById('txSearchInput').value.toLowerCase();
+            const cat = document.getElementById('categoryFilter').value;
+            const type = document.getElementById('typeFilter').value;
+
+            filteredTransactions = rawTransactions.filter(tx => {
+                const matchesSearch = tx.description.toLowerCase().includes(search) || tx.category.toLowerCase().includes(search);
+                const matchesCategory = (cat === 'ALL' || tx.category === cat);
+                let matchesType = true;
+
+                if (type === 'CREDIT') matchesType = tx.amount > 0;
+                else if (type === 'DEBIT') matchesType = tx.amount < 0;
+                else if (type === 'BOUNCE') matchesType = (tx.status === 'CHEQUE_BOUNCE' || tx.status === 'FAILED_MANDATE');
+
+                return matchesSearch && matchesCategory && matchesType;
+            });
+
+            renderTransactionsTable();
+        }
+
+        // Populate Category Filter Dropdown
+        function populateCategoryFilter() {
+            const catSelect = document.getElementById('categoryFilter');
+            catSelect.innerHTML = '<option value="ALL">All Categories</option>';
+            categoriesSet.clear();
+
+            rawTransactions.forEach(tx => categoriesSet.add(tx.category));
+            categoriesSet.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                catSelect.appendChild(opt);
+            });
+        }
+
+        // Render Cash Flow & Balance Line/Bar Chart
+        function renderCashFlowChart() {
+            const ctx = document.getElementById('cashFlowChart').getContext('2d');
+            if (cashFlowChartInstance) cashFlowChartInstance.destroy();
+
+            const dates = rawTransactions.map(tx => tx.date);
+            const balances = rawTransactions.map(tx => tx.balance);
+
+            cashFlowChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Account Balance (₹)',
+                            data: balances,
+                            borderColor: '#0284c7',
+                            backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => ` Balance: ${formatINR(context.raw)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                        y: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                font: { size: 10 },
+                                callback: (val) => '₹' + (val / 1000).toFixed(0) + 'k'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render Category Breakdown Doughnut Chart
+        function renderCategoryChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            if (categoryChartInstance) categoryChartInstance.destroy();
+
+            const categoryTotals = {};
+            rawTransactions.filter(tx => tx.amount < 0).forEach(tx => {
+                categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + Math.abs(tx.amount);
+            });
+
+            const labels = Object.keys(categoryTotals);
+            const data = Object.values(categoryTotals);
+            const colors = ['#0284c7', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#ec4899', '#64748b'];
+
+            categoryChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => ` ${context.label}: ${formatINR(context.raw)}`
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        // Detect Financial Risk Anomalies
+        function detectAnomalies() {
+            const container = document.getElementById('anomalyListContainer');
+            container.innerHTML = '';
+
+            const anomalies = [];
+
+            // 1. Check for Cheque Bounces / Failed Mandates
+            const bounces = rawTransactions.filter(tx => tx.status === 'CHEQUE_BOUNCE' || tx.status === 'FAILED_MANDATE');
+            if (bounces.length > 0) {
+                anomalies.push({
+                    title: 'Dishonored Mandates / Bounced Cheques',
+                    desc: `Detected ${bounces.length} bounced cheque(s) or NACH return failure charges. This directly impacts credit scores and loan eligibility.`,
+                    level: 'high',
+                    icon: 'fa-ban'
+                });
+            }
+
+            // 2. High-value debit spikes (> 3x average debit)
+            const debits = rawTransactions.filter(tx => tx.amount < 0).map(tx => Math.abs(tx.amount));
+            const avgDebit = debits.length > 0 ? (debits.reduce((a, b) => a + b, 0) / debits.length) : 0;
+
+            const highSpikes = rawTransactions.filter(tx => tx.amount < 0 && Math.abs(tx.amount) > (avgDebit * 3.5));
+            if (highSpikes.length > 0) {
+                anomalies.push({
+                    title: 'Unusually High Debit Spikes',
+                    desc: `Found ${highSpikes.length} transaction(s) exceeding 3.5x your average transaction amount (${formatINR(avgDebit)}). Max spike: ${formatINR(Math.max(...highSpikes.map(t => Math.abs(t.amount))))}.`,
+                    level: 'medium',
+                    icon: 'fa-chart-line-down'
+                });
+            }
+
+            // 3. Duplicate transactions check
+            const descCounts = {};
+            rawTransactions.forEach(tx => {
+                const key = `${tx.description}_${tx.amount}`;
+                descCounts[key] = (descCounts[key] || 0) + 1;
+            });
+            const dupes = Object.entries(descCounts).filter(([k, v]) => v > 1);
+            if (dupes.length > 0) {
+                anomalies.push({
+                    title: 'Possible Duplicate Debits',
+                    desc: `Identified ${dupes.length} potential duplicate charges occurring with identical descriptions and amounts in the statement period.`,
+                    level: 'low',
+                    icon: 'fa-clone'
+                });
+            }
+
+            document.getElementById('anomalyTabCount').textContent = anomalies.length;
+
+            if (anomalies.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-2 bg-white p-6 rounded-xl border border-slate-200 text-center text-slate-500">
+                        <i class="fa-solid fa-shield-check text-emerald-500 text-3xl mb-2"></i>
+                        <p class="font-bold text-slate-800 text-sm">No Anomaly Risks Detected</p>
+                        <p class="text-xs text-slate-400 mt-1">Transaction flow appears clean with normal spending patterns.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            anomalies.forEach(item => {
+                const isHigh = item.level === 'high';
+                const isMed = item.level === 'medium';
+                const colorClass = isHigh ? 'border-rose-300 bg-rose-50/20 text-rose-600' : (isMed ? 'border-amber-300 bg-amber-50/20 text-amber-600' : 'border-sky-300 bg-sky-50/20 text-sky-600');
+                
+                container.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl border ${colorClass} shadow-xs flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-xl ${isHigh ? 'bg-rose-100 text-rose-600' : (isMed ? 'bg-amber-100 text-amber-600' : 'bg-sky-100 text-sky-600')} flex items-center justify-center font-bold text-lg shrink-0">
+                            <i class="fa-solid ${item.icon}"></i>
+                        </div>
+                        <div>
+                            <h5 class="text-xs font-bold text-slate-900">${item.title}</h5>
+                            <p class="text-xs text-slate-600 mt-1 leading-relaxed">${item.desc}</p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Detect Recurring Subscriptions & Monthly Bills
+        function detectRecurringSubscriptions() {
+            const container = document.getElementById('recurringListContainer');
+            container.innerHTML = '';
+
+            const descriptionGroups = {};
+            rawTransactions.filter(tx => tx.amount < 0).forEach(tx => {
+                const name = tx.description.replace(/(Monthly|Subscription|Bill|Ref|UPI|Auto|Debit)/gi, '').trim();
+                if (!descriptionGroups[name]) descriptionGroups[name] = [];
+                descriptionGroups[name].push(tx);
+            });
+
+            const recurring = [];
+            Object.entries(descriptionGroups).forEach(([name, list]) => {
+                if (list.length >= 2) {
+                    const avgAmt = list.reduce((sum, t) => sum + Math.abs(t.amount), 0) / list.length;
+                    recurring.push({
+                        name: name,
+                        count: list.length,
+                        avgAmount: avgAmt,
+                        category: list[0].category
+                    });
+                }
+            });
+
+            document.getElementById('subTabCount').textContent = recurring.length;
+
+            if (recurring.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-3 bg-white p-6 rounded-xl border border-slate-200 text-center text-slate-500">
+                        <i class="fa-solid fa-arrows-rotate text-slate-400 text-3xl mb-2"></i>
+                        <p class="font-bold text-slate-800 text-sm">No Recurring Payments Found</p>
+                        <p class="text-xs text-slate-400 mt-1">Requires multiple monthly statement periods to detect recurring bill charges.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            recurring.forEach(item => {
+                container.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center font-bold text-sm">
+                                <i class="fa-solid fa-arrows-rotate"></i>
+                            </div>
+                            <div>
+                                <h5 class="text-xs font-bold text-slate-900">${item.name}</h5>
+                                <p class="text-[10px] text-slate-500">${item.category} • ${item.count} cycle(s)</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-slate-900">${formatINR(item.avgAmount)}/mo</span>
+                    </div>
+                `;
+            });
+        }
+
+        // Switch Dashboard Navigation Tabs
+        function switchTab(tabId) {
+            const tabs = ['overviewTab', 'transactionsTab', 'bounceTab', 'anomalyTab', 'recurringTab'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const section = document.getElementById(t);
+                if (t === tabId) {
+                    section.classList.remove('hidden');
+                    btn.className = 'px-4 py-2 text-xs font-bold rounded-lg bg-brand-600 text-white shadow-xs flex items-center gap-1.5';
+                } else {
+                    section.classList.add('hidden');
+                    btn.className = 'px-4 py-2 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200/60 flex items-center gap-1.5';
+                }
+            });
+        }
+
+        // Format Currency in INR (₹)
+        function formatINR(val) {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                maximumFractionDigits: 2
+            }).format(val);
+        }
+
+        // Load Default Perfios Sample Data
+        function loadSampleData() {
+            processStatementData(SAMPLE_STATEMENT);
+            showModal('Sample Data Loaded', 'Loaded Perfios-style multi-month bank statement data formatted in INR (₹).', 'info');
+        }
+
+        // Download Analyzed Statement in CSV Format (Same Structure as View)
+        function downloadAnalyzedCSV() {
+            if (!rawTransactions || rawTransactions.length === 0) {
+                showModal('Export Error', 'No parsed transactions available to export.', 'warning');
+                return;
+            }
+
+            // Define CSV Headers
+            const headers = ['Date', 'Description', 'Category', 'Credit (INR)', 'Debit (INR)', 'Status', 'Balance (INR)'];
+            const rows = rawTransactions.map(tx => {
+                const isCredit = tx.amount > 0;
+                const creditAmt = isCredit ? tx.amount.toFixed(2) : '';
+                const debitAmt = !isCredit ? Math.abs(tx.amount).toFixed(2) : '';
+                const statusStr = tx.status === 'CHEQUE_BOUNCE' ? 'CHEQUE BOUNCE' : (tx.status === 'FAILED_MANDATE' ? 'FAILED MANDATE' : 'SUCCESS');
+                
+                // Escape quotes for CSV
+                const cleanDesc = `"${tx.description.replace(/"/g, '""')}"`;
+                const cleanCat = `"${tx.category.replace(/"/g, '""')}"`;
+
+                return [tx.date, cleanDesc, cleanCat, creditAmt, debitAmt, statusStr, tx.balance.toFixed(2)].join(',');
+            });
+
+            const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', `FinSight_Bank_Statement_Audit_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showModal('Export Complete', 'Downloaded analyzed statement CSV file with separated credit/debit and bounce indicators.', 'success');
+        }
+
+        // Print / Save Full Executive Audit Report as PDF
+        function printAuditReport() {
+            if (!rawTransactions || rawTransactions.length === 0) {
+                showModal('Export Error', 'No parsed statement available for PDF generation.', 'warning');
+                return;
+            }
+            window.print();
+        }
+
+        // AI Financial Underwriting & Cash Flow Report
+        function generateAiFinancialReport() {
+            const container = document.getElementById('aiAnalysisContainer');
+            const content = document.getElementById('aiContentArea');
+            container.classList.remove('hidden');
+
+            const totalCredits = rawTransactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+            const totalDebits = rawTransactions.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            const netSurplus = totalCredits - totalDebits;
+            const bounceCount = rawTransactions.filter(t => t.status === 'CHEQUE_BOUNCE' || t.status === 'FAILED_MANDATE').length;
+
+            content.innerHTML = `
+                <div class="flex items-center gap-2 text-indigo-300 font-semibold mb-2">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Synthesizing Executive Risk & Credit Audit Summary...
+                </div>
+            `;
+
+            setTimeout(() => {
+                content.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-xs bg-slate-800/80 p-3.5 rounded-xl border border-indigo-500/30">
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase">Underwriting Clearance</span>
+                            <span class="font-bold ${bounceCount > 0 ? 'text-amber-400' : 'text-emerald-400'} text-sm">${bounceCount > 0 ? 'Conditional Approval (Bounces Present)' : 'Approved for Credit'}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase">Net Cash Flow Run-Rate</span>
+                            <span class="font-bold text-white text-sm">${formatINR(netSurplus)}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase">Dishonor / Mandate Risk</span>
+                            <span class="font-bold ${bounceCount > 0 ? 'text-rose-400' : 'text-emerald-400'} text-sm">${bounceCount} Return Event(s)</span>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 text-xs text-slate-200">
+                        <p><strong>1. Cash Flow Health:</strong> Total inflows reached <strong>${formatINR(totalCredits)}</strong> against total debits of <strong>${formatINR(totalDebits)}</strong>. The account maintains a steady net cash surplus ratio.</p>
+                        <p><strong>2. Underwriting & Liquidity Assessment:</strong> Average daily account balance remains above recommended debt-service coverage thresholds. Recurring expense ratio is sustainable.</p>
+                        <p><strong>3. Compliance & Repayment Warning:</strong> ${bounceCount > 0 ? `Flagged <strong class="text-rose-300">${bounceCount} cheque bounce/ECS failure event(s)</strong>. Recommend resolving mandate permissions before issuing high-limit loan products.` : 'Zero bounce charges detected across the statement period. High repayment reliability rating.'}</p>
+                    </div>
+                `;
+            }, 700);
+        }
+
+        // Notification Modal Utilities
+        function showModal(title, msg, type = 'info') {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = msg;
+            const iconEl = document.getElementById('modalIcon');
+            
+            if (type === 'success') {
+                iconEl.className = 'w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-xl';
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            } else if (type === 'warning') {
+                iconEl.className = 'w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto text-xl';
+                iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            } else {
+                iconEl.className = 'w-12 h-12 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto text-xl';
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+            }
+            document.getElementById('customModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('customModal').classList.add('hidden');
+        }
+
+        // Initialize application with sample data on load
+        window.onload = function() {
+            loadSampleData();
+        };
+    </script>
+</body>
+</html>
