@@ -12,6 +12,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- PDF.js library for PDF parsing support -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- SheetJS (xlsx) Library for Multi-Worksheet Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
@@ -71,7 +73,7 @@
             <!-- Export & Action Controls -->
             <div class="flex items-center gap-2">
                 <button onclick="exportToCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
-                    <i class="fa-solid fa-file-excel"></i> Export CSV/Excel
+                    <i class="fa-solid fa-file-excel"></i> Export Multi-Sheet Excel (with FCU)
                 </button>
                 <button onclick="printReport()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
                     <i class="fa-solid fa-print"></i> Print / PDF
@@ -668,6 +670,7 @@
         // Categorize transaction description based on keywords
         function categorizeTransaction(desc) {
             const d = (desc || '').toLowerCase();
+            if (d.includes('emi') || d.includes('loan') || d.includes('borrowing') || d.includes('lending') || d.includes('bajaj') || d.includes('hdb') || d.includes('home loan') || d.includes('car loan') || d.includes('personal loan') || d.includes('mortgage') || d.includes('nbfc')) return 'Loans & Borrowings';
             if (d.includes('salary') || d.includes('payroll') || d.includes('remuneration')) return 'Salary / Income';
             if (d.includes('rent') || d.includes('lease') || d.includes('housing')) return 'Rent & Housing';
             if (d.includes('swiggy') || d.includes('zomato') || d.includes('restaurant') || d.includes('food') || d.includes('grocery') || d.includes('bigbasket')) return 'Food & Groceries';
@@ -678,153 +681,155 @@
             if (d.includes('bounce') || d.includes('ecs return') || d.includes('nach fail') || d.includes('dishonor')) return 'Bounce / Charge Penalty';
             return 'General & Transfers';
         }
-
-        // Detect status flags such as CHEQUE_BOUNCE or FAILED_MANDATE
-        function detectStatus(desc) {
-            const d = (desc || '').toLowerCase();
-            if (d.includes('cheque bounce') || d.includes('chq return') || d.includes('chq bounce')) return 'CHEQUE_BOUNCE';
-            if (d.includes('ecs return') || d.includes('nach fail') || d.includes('mandate fail') || d.includes('auto pay failed')) return 'FAILED_MANDATE';
-            return 'SUCCESS';
-        }
-
-        // Load synthetic sample Indian bank statement data
-        function loadSampleData() {
-            const demoTransactions = [
-                { date: '2026-03-01', description: 'SALARY CREDIT - ACME TECH PVT LTD', amount: 185000, type: 'CREDIT', category: 'Salary / Income', balance: 285000, status: 'SUCCESS' },
-                { date: '2026-03-02', description: 'UPI-RENT PAYMENT TO LANDLORD', amount: -35000, type: 'DEBIT', category: 'Rent & Housing', balance: 250000, status: 'SUCCESS' },
-                { date: '2026-03-04', description: 'AWS CLOUD SERVICES INDIA', amount: -8400, type: 'DEBIT', category: 'SaaS & Subscriptions', balance: 241600, status: 'SUCCESS' },
-                { date: '2026-03-05', description: 'CHEQUE BOUNCE CHARGE - CHQ #409211', amount: -750, type: 'DEBIT', category: 'Bounce / Charge Penalty', balance: 240850, status: 'CHEQUE_BOUNCE' },
-                { date: '2026-03-08', description: 'BIGBASKET GROCERY ORDER', amount: -4250, type: 'DEBIT', category: 'Food & Groceries', balance: 236600, status: 'SUCCESS' },
-                { date: '2026-03-10', description: 'SWIGGY FOOD DELIVERY', amount: -890, type: 'DEBIT', category: 'Food & Groceries', balance: 235710, status: 'SUCCESS' },
-                { date: '2026-03-12', description: 'NACH FAIL - SIP MUTUAL FUND', amount: -250, type: 'DEBIT', category: 'Bounce / Charge Penalty', balance: 235460, status: 'FAILED_MANDATE' },
-                { date: '2026-03-15', description: 'CLIENT CONSULTING FEE - INVOICE #892', amount: 45000, type: 'CREDIT', category: 'Salary / Income', balance: 280460, status: 'SUCCESS' },
-                { date: '2026-03-18', description: 'ATM CASH WITHDRAWAL HDFC', amount: -10000, type: 'DEBIT', category: 'ATM Cash Withdrawal', balance: 270460, status: 'SUCCESS' },
-                { date: '2026-03-20', description: 'ELECTRICITY BILL BESCOM', amount: -3200, type: 'DEBIT', category: 'Utilities & Bills', balance: 267260, status: 'SUCCESS' },
-                { date: '2026-03-22', description: 'NETFLIX INDIA SUBSCRIPTION', amount: -649, type: 'DEBIT', category: 'SaaS & Subscriptions', balance: 266611, status: 'SUCCESS' },
-                { date: '2026-03-25', description: 'UPI-SWIGGY FOOD DIRECT', amount: -1240, type: 'DEBIT', category: 'Food & Groceries', balance: 265371, status: 'SUCCESS' },
-                { date: '2026-03-28', description: 'PETROL PUMP FUEL PAY', amount: -2500, type: 'DEBIT', category: 'Travel & Commute', balance: 262871, status: 'SUCCESS' }
-            ];
-
-            processStatementData(demoTransactions);
-        }
-
-        // Calculate Overview KPI Cards and Financial Health Score
-        function calculateMetrics() {
-            let totalCredits = 0;
-            let totalDebits = 0;
-            let bounceCount = 0;
-
-            rawTransactions.forEach(t => {
-                if (t.amount > 0) {
-                    totalCredits += t.amount;
-                } else {
-                    totalDebits += Math.abs(t.amount);
-                }
-
-                if (t.status === 'CHEQUE_BOUNCE' || t.status === 'FAILED_MANDATE') {
-                    bounceCount++;
-                }
-            });
-
-            const netCashFlow = totalCredits - totalDebits;
-            const grossTurnover = totalCredits + totalDebits;
-
-            // Compute turnover metric calculations
-            const dates = rawTransactions.map(t => new Date(t.date).getTime()).filter(d => !isNaN(d));
-            let daySpan = 30;
-            if (dates.length > 1) {
-                const minDate = Math.min(...dates);
-                const maxDate = Math.max(...dates);
-                daySpan = Math.max(1, Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)));
-            }
-            const avgDailyTurnover = grossTurnover / daySpan;
-            const turnoverRatio = totalDebits > 0 ? (totalCredits / totalDebits).toFixed(2) : 'N/A';
-
-            // Health score base 100, penalized by bounces and negative cash flow ratio
-            let healthScore = 85;
-            if (bounceCount > 0) healthScore -= (bounceCount * 12);
-            if (totalDebits > totalCredits && totalCredits > 0) healthScore -= 15;
-            healthScore = Math.max(10, Math.min(100, healthScore));
-
-            const credEl = document.getElementById('totalCreditsDisplay');
-            if (credEl) credEl.innerText = formatINR(totalCredits);
-
-            const debEl = document.getElementById('totalDebitsDisplay');
-            if (debEl) debEl.innerText = formatINR(totalDebits);
-
-            const netEl = document.getElementById('netCashFlowDisplay');
-            if (netEl) netEl.innerText = formatINR(netCashFlow);
-
-            const healthEl = document.getElementById('healthScoreDisplay');
-            if (healthEl) healthEl.innerText = `${healthScore}/100`;
-
-            const bounceEl = document.getElementById('bounceCountDisplay');
-            if (bounceEl) bounceEl.innerText = bounceCount;
-
-            // Populate Turnover Summary Table
-            const turnGrossEl = document.getElementById('turnoverGross');
-            if (turnGrossEl) turnGrossEl.innerText = formatINR(grossTurnover);
-
-            const turnCredEl = document.getElementById('turnoverCredits');
-            if (turnCredEl) turnCredEl.innerText = formatINR(totalCredits);
-
-            const turnDebEl = document.getElementById('turnoverDebits');
-            if (turnDebEl) turnDebEl.innerText = formatINR(totalDebits);
-
-            const turnNetEl = document.getElementById('turnoverNet');
-            if (turnNetEl) turnNetEl.innerText = formatINR(netCashFlow);
-
-            const turnDailyEl = document.getElementById('turnoverDaily');
-            if (turnDailyEl) turnDailyEl.innerText = formatINR(avgDailyTurnover);
-
-            const turnRatioEl = document.getElementById('turnoverRatio');
-            if (turnRatioEl) turnRatioEl.innerText = `${turnoverRatio}x`;
-        }
-
-        // Populate dynamic category dropdown filter
-        function populateCategoryFilter() {
-            const select = document.getElementById('categoryFilter');
-            if (!select) return;
-            const categories = [...new Set(rawTransactions.map(t => t.category))];
-            select.innerHTML = '<option value="ALL">All Categories</option>' + 
-                categories.map(c => `<option value="${c}">${c}</option>`).join('');
-        }
-
-        // Render Top Sent to and Received from Cards
-        function renderTopParties() {
-            const senders = {};
-            const recipients = {};
-
-            rawTransactions.forEach(t => {
-                if (t.amount > 0) {
-                    senders[t.description] = (senders[t.description] || 0) + t.amount;
-                } else {
-                    recipients[t.description] = (recipients[t.description] || 0) + Math.abs(t.amount);
-                }
-            });
-
-            const topSenders = Object.entries(senders).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            const topRecipients = Object.entries(recipients).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-            const sendersContainer = document.getElementById('topSendersList');
-            const recipientsContainer = document.getElementById('topRecipientsList');
-
-            if (sendersContainer) {
-                sendersContainer.innerHTML = topSenders.length ? topSenders.map(([name, val]) => `
-                    <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg text-xs border border-slate-100">
-                        <span class="font-medium text-slate-700 truncate max-w-[180px]" title="${name}">${name}</span>
-                        <span class="font-bold text-emerald-600">${formatINR(val)}</span>
-                    </div>
-                `).join('') : '<p class="text-xs text-slate-400 italic">No incoming credits found</p>';
+        // Download parsed transactions in multi-worksheet Excel format (.xlsx)
+        function exportToCSV() {
+            if (!rawTransactions.length) {
+                showModal('Export Error', 'No parsed transactions available to export.');
+                return;
             }
 
-            if (recipientsContainer) {
-                recipientsContainer.innerHTML = topRecipients.length ? topRecipients.map(([name, val]) => `
-                    <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg text-xs border border-slate-100">
-                        <span class="font-medium text-slate-700 truncate max-w-[180px]" title="${name}">${name}</span>
-                        <span class="font-bold text-rose-600">${formatINR(val)}</span>
-                    </div>
-                `).join('') : '<p class="text-xs text-slate-400 italic">No outgoing debits found</p>';
+            try {
+                // Check if XLSX library is loaded
+                if (typeof XLSX === 'undefined') {
+                    // Fallback to basic CSV if XLSX library is unavailable
+                    let csv = 'Date,Description,Category,Credit (INR),Debit (INR),Balance (INR),Status\n';
+                    rawTransactions.forEach(t => {
+                        const credit = t.amount > 0 ? t.amount : 0;
+                        const debit = t.amount < 0 ? Math.abs(t.amount) : 0;
+                        csv += `"${t.date}","${t.description.replace(/"/g, '""')}","${t.category}",${credit},${debit},${t.balance},"${t.status}"\n`;
+                    });
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Bank_Statement_Audit_${new Date().toISOString().split('T')[0]}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    return;
+                }
+
+                const wb = XLSX.utils.book_new();
+
+                // SHEET 1: All Transactions Ledger
+                const sheet1Data = [
+                    ['Date', 'Full Bank Narration', 'Category', 'Credit (INR)', 'Debit (INR)', 'Running Balance (INR)', 'Audit Status']
+                ];
+                rawTransactions.forEach(t => {
+                    sheet1Data.push([
+                        t.date,
+                        t.description,
+                        t.category,
+                        t.amount > 0 ? t.amount : 0,
+                        t.amount < 0 ? Math.abs(t.amount) : 0,
+                        t.balance,
+                        t.status
+                    ]);
+                });
+                const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+                XLSX.utils.book_append_sheet(wb, ws1, 'All Transactions');
+
+                // SHEET 2: Turnover & Cash Flow Summary
+                let totalCredits = 0, totalDebits = 0;
+                rawTransactions.forEach(t => {
+                    if (t.amount > 0) totalCredits += t.amount;
+                    else totalDebits += Math.abs(t.amount);
+                });
+                const grossTurnover = totalCredits + totalDebits;
+                const netCashFlow = totalCredits - totalDebits;
+                const sheet2Data = [
+                    ['Financial Metric', 'Underwriting Context', 'Value (INR / Metric)'],
+                    ['Gross Account Turnover', 'Sum of all incoming deposits and outgoing debits', grossTurnover],
+                    ['Total Credit Inflow', 'Gross receipts deposited into account', totalCredits],
+                    ['Total Debit Outflow', 'Gross debits & withdrawals from account', totalDebits],
+                    ['Net Cash Flow Surplus / Deficit', 'Retained balance (Total Credits - Total Debits)', netCashFlow],
+                    ['Credit-to-Debit Ratio', 'Ratio of total inflows to total outflows', totalDebits > 0 ? (totalCredits / totalDebits).toFixed(2) + 'x' : 'N/A']
+                ];
+                const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+                XLSX.utils.book_append_sheet(wb, ws2, 'Turnover & Cash Flow');
+
+                // SHEET 3: FCU & Fraud Control Unit Audit
+                const sheet3Data = [
+                    ['Date', 'Transaction Description', 'Risk Type / Flag', 'Returned / Anomaly Amount (INR)', 'Running Balance (INR)', 'FCU Underwriter Note']
+                ];
+                const bouncesAndAnomalies = rawTransactions.filter(t => 
+                    t.status === 'CHEQUE_BOUNCE' || t.status === 'FAILED_MANDATE' || (t.amount < 0 && Math.abs(t.amount) > 25000)
+                );
+                if (bouncesAndAnomalies.length > 0) {
+                    bouncesAndAnomalies.forEach(t => {
+                        let flagType = t.status !== 'SUCCESS' ? t.status : 'HIGH_VALUE_OUTFLOW_ANOMALY';
+                        let note = t.status === 'CHEQUE_BOUNCE' 
+                            ? 'Dishonored Cheque Penalty - High Credit Risk' 
+                            : t.status === 'FAILED_MANDATE' 
+                            ? 'NACH/ECS Mandate Failure - Low Account Liquidity' 
+                            : 'Unusual Outflow Spike detected for account audit';
+                        sheet3Data.push([t.date, t.description, flagType, Math.abs(t.amount), t.balance, note]);
+                    });
+                } else {
+                    sheet3Data.push(['-', 'No Cheque Bounces or High-Value FCU Anomalies Flagged', 'CLEAN_AUDIT', 0, 0, 'Low risk profile']);
+                }
+                const ws3 = XLSX.utils.aoa_to_sheet(sheet3Data);
+                XLSX.utils.book_append_sheet(wb, ws3, 'FCU & Fraud Audit');
+
+                // SHEET 4: Counterparty Analysis (Top Sent & Received)
+                const senders = {}, recipients = {};
+                rawTransactions.forEach(t => {
+                    if (t.amount > 0) senders[t.description] = (senders[t.description] || 0) + t.amount;
+                    else recipients[t.description] = (recipients[t.description] || 0) + Math.abs(t.amount);
+                });
+                const sheet4Data = [
+                    ['Counterparty Name / Narration', 'Direction', 'Total Volume (INR)', 'Transaction Share']
+                ];
+                Object.entries(senders).sort((a,b)=>b[1]-a[1]).slice(0, 10).forEach(([name, amt]) => {
+                    sheet4Data.push([name, 'INFLOW (Received From)', amt, ((amt / (totalCredits || 1)) * 100).toFixed(1) + '%']);
+                });
+                Object.entries(recipients).sort((a,b)=>b[1]-a[1]).slice(0, 10).forEach(([name, amt]) => {
+                    sheet4Data.push([name, 'OUTFLOW (Sent To)', amt, ((amt / (totalDebits || 1)) * 100).toFixed(1) + '%']);
+                });
+                const ws4 = XLSX.utils.aoa_to_sheet(sheet4Data);
+                XLSX.utils.book_append_sheet(wb, ws4, 'Counterparty Analysis');
+
+                // SHEET 5: Loans & Borrowings / EMI Audit
+                const sheet5Data = [
+                    ['Date', 'Loan / Lender Narration', 'Transaction Type', 'EMI / Borrowing Amount (INR)', 'Status / Mandate Flag', 'Underwriting Risk Classification']
+                ];
+                const loanTxns = rawTransactions.filter(t => {
+                    const desc = t.description.toLowerCase();
+                    return desc.includes('emi') || desc.includes('loan') || desc.includes('borrowing') || 
+                           desc.includes('lending') || desc.includes('bajaj') || desc.includes('hdb') || 
+                           desc.includes('home loan') || desc.includes('car loan') || desc.includes('personal loan') ||
+                           desc.includes('nbfc') || t.category === 'Loans & Borrowings';
+                });
+
+                if (loanTxns.length > 0) {
+                    loanTxns.forEach(t => {
+                        const txnType = t.amount > 0 ? 'LOAN_DISBURSAL_CREDIT' : 'EMI_DEBIT_PAYMENT';
+                        let risk = 'Normal EMI Repayment';
+                        if (t.status === 'FAILED_MANDATE' || t.status === 'CHEQUE_BOUNCE') {
+                            risk = 'CRITICAL: Dishonored EMI / Loan Bounce Risk';
+                        } else if (t.amount > 0) {
+                            risk = 'Fresh Borrowing / Disbursal Credit';
+                        }
+                        sheet5Data.push([
+                            t.date,
+                            t.description,
+                            txnType,
+                            Math.abs(t.amount),
+                            t.status,
+                            risk
+                        ]);
+                    });
+                } else {
+                    sheet5Data.push(['-', 'No explicit Loan EMI payments or Borrowing credits detected', 'CLEAN', 0, 'SUCCESS', 'Zero active loan debits identified']);
+                }
+                const ws5 = XLSX.utils.aoa_to_sheet(sheet5Data);
+                XLSX.utils.book_append_sheet(wb, ws5, 'Loans & Borrowings');
+
+                // Export multi-sheet workbook
+                XLSX.writeFile(wb, `Bank_Statement_Audit_Full_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+            } catch (err) {
+                console.error('XLSX export error:', err);
+                showModal('Export Error', 'Failed to generate Excel workbook: ' + err.message);
             }
         }
 
@@ -920,127 +925,329 @@
             `).join('');
         }
 
-        // Render Cheque Bounce & Mandate Fail Tab
+        // Detect bounce or mandate status
+        function detectStatus(desc) {
+            const d = (desc || '').toLowerCase();
+            if (d.includes('bounce') || d.includes('chq return') || d.includes('dishonor')) return 'CHEQUE_BOUNCE';
+            if (d.includes('ecs return') || d.includes('nach fail') || d.includes('mandate fail') || d.includes('insufficient funds')) return 'FAILED_MANDATE';
+            return 'SUCCESS';
+        }
+
+        // Render Cheque Bounce & Mandate Audit Tab Table
         function renderBounceTab() {
             const tbody = document.getElementById('bounceTbody');
             if (!tbody) return;
 
-            const bounceList = rawTransactions.filter(t => t.status === 'CHEQUE_BOUNCE' || t.status === 'FAILED_MANDATE');
+            const bounces = rawTransactions.filter(t => t.status === 'CHEQUE_BOUNCE' || t.status === 'FAILED_MANDATE');
+            if (bounces.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-xs text-slate-400">No dishonored cheques or failed mandates detected.</td></tr>`;
+                return;
+            }
 
-            tbody.innerHTML = bounceList.length ? bounceList.map(t => `
-                <tr class="hover:bg-slate-50 transition border-b border-slate-100 text-xs">
+            tbody.innerHTML = bounces.map(t => `
+                <tr class="hover:bg-amber-50/40 transition border-b border-slate-100 text-xs">
                     <td class="px-4 py-3 font-medium text-slate-600 whitespace-nowrap">${t.date}</td>
                     <td class="px-4 py-3 font-medium text-slate-800">${t.description}</td>
                     <td class="px-4 py-3 text-center">
                         <span class="px-2 py-0.5 rounded text-[10px] font-bold ${t.status === 'CHEQUE_BOUNCE' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}">
-                            ${t.status.replace('_', ' ')}
+                            ${t.status}
                         </span>
                     </td>
-                    <td class="px-4 py-3 font-semibold text-rose-600 text-right whitespace-nowrap">${formatINR(Math.abs(t.amount))}</td>
-                    <td class="px-4 py-3 text-right text-slate-500">${formatINR(t.balance)}</td>
+                    <td class="px-4 py-3 font-bold text-rose-600 text-right whitespace-nowrap">${formatINR(Math.abs(t.amount))}</td>
+                    <td class="px-4 py-3 text-right font-medium text-slate-700 whitespace-nowrap">${formatINR(t.balance)}</td>
                 </tr>
-            `).join('') : `
-                <tr>
-                    <td colspan="5" class="px-4 py-6 text-center text-xs text-slate-400 italic">No cheque bounces or failed mandates detected!</td>
-                </tr>
-            `;
+            `).join('');
         }
 
-        // Detect Anomalies & Large Outflows
+        // Calculate and render executive metric totals
+        function calculateMetrics() {
+            let credits = 0, debits = 0;
+            let bounceCount = 0;
+
+            rawTransactions.forEach(t => {
+                if (t.amount > 0) credits += t.amount;
+                else debits += Math.abs(t.amount);
+                if (t.status === 'CHEQUE_BOUNCE' || t.status === 'FAILED_MANDATE') bounceCount++;
+            });
+
+            const net = credits - debits;
+            let healthScore = Math.max(20, Math.min(100, Math.round(75 + (net > 0 ? 15 : -15) - (bounceCount * 12))));
+
+            const elCredits = document.getElementById('totalCreditsDisplay');
+            const elDebits = document.getElementById('totalDebitsDisplay');
+            const elNet = document.getElementById('netCashFlowDisplay');
+            const elHealth = document.getElementById('healthScoreDisplay');
+            const elBounces = document.getElementById('bounceCountDisplay');
+
+            if (elCredits) elCredits.innerText = formatINR(credits);
+            if (elDebits) elDebits.innerText = formatINR(debits);
+            if (elNet) elNet.innerText = formatINR(net);
+            if (elHealth) elHealth.innerText = `${healthScore}/100`;
+            if (elBounces) elBounces.innerText = bounceCount;
+
+            // Update Turnover Table
+            const elTGross = document.getElementById('turnoverGross');
+            const elTCredits = document.getElementById('turnoverCredits');
+            const elTDebits = document.getElementById('turnoverDebits');
+            const elTNet = document.getElementById('turnoverNet');
+            const elTDaily = document.getElementById('turnoverDaily');
+            const elTRatio = document.getElementById('turnoverRatio');
+
+            if (elTGross) elTGross.innerText = formatINR(credits + debits);
+            if (elTCredits) elTCredits.innerText = formatINR(credits);
+            if (elTDebits) elTDebits.innerText = formatINR(debits);
+            if (elTNet) elTNet.innerText = formatINR(net);
+            if (elTDaily) elTDaily.innerText = formatINR((credits + debits) / Math.max(1, rawTransactions.length));
+            if (elTRatio) elTRatio.innerText = debits > 0 ? (credits / debits).toFixed(2) + 'x' : '1.00x';
+        }
+
+        // Populate Category Filter Dropdown
+        function populateCategoryFilter() {
+            const filter = document.getElementById('categoryFilter');
+            if (!filter) return;
+
+            const categories = Array.from(new Set(rawTransactions.map(t => t.category)));
+            filter.innerHTML = `<option value="ALL">All Categories</option>` + 
+                categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        // Render Top Money Sent To and Received From Counterparties
+        function renderTopParties() {
+            const sendersList = document.getElementById('topSendersList');
+            const recipientsList = document.getElementById('topRecipientsList');
+
+            const senders = {}, recipients = {};
+            rawTransactions.forEach(t => {
+                if (t.amount > 0) senders[t.description] = (senders[t.description] || 0) + t.amount;
+                else recipients[t.description] = (recipients[t.description] || 0) + Math.abs(t.amount);
+            });
+
+            if (sendersList) {
+                const topSenders = Object.entries(senders).sort((a,b)=>b[1]-a[1]).slice(0, 4);
+                sendersList.innerHTML = topSenders.map(([name, amt]) => `
+                    <div class="flex items-center justify-between text-xs p-1.5 rounded hover:bg-slate-50">
+                        <span class="font-medium text-slate-700 truncate max-w-[180px]" title="${name}">${name}</span>
+                        <span class="font-bold text-emerald-600">${formatINR(amt)}</span>
+                    </div>
+                `).join('') || `<p class="text-xs text-slate-400">No deposit counterparties</p>`;
+            }
+
+            if (recipientsList) {
+                const topRecipients = Object.entries(recipients).sort((a,b)=>b[1]-a[1]).slice(0, 4);
+                recipientsList.innerHTML = topRecipients.map(([name, amt]) => `
+                    <div class="flex items-center justify-between text-xs p-1.5 rounded hover:bg-slate-50">
+                        <span class="font-medium text-slate-700 truncate max-w-[180px]" title="${name}">${name}</span>
+                        <span class="font-bold text-rose-600">${formatINR(amt)}</span>
+                    </div>
+                `).join('') || `<p class="text-xs text-slate-400">No withdrawal counterparties</p>`;
+            }
+        }
+
+        // Detect outflow spikes / anomalies
         function detectAnomalies() {
             const container = document.getElementById('anomaliesList');
             if (!container) return;
 
-            const anomalies = [];
-            const avgDebit = rawTransactions.filter(t => t.amount < 0)
-                .reduce((acc, curr) => acc + Math.abs(curr.amount), 0) / (rawTransactions.filter(t => t.amount < 0).length || 1);
+            const debits = rawTransactions.filter(t => t.amount < 0);
+            const avgDebit = debits.reduce((acc, t) => acc + Math.abs(t.amount), 0) / (debits.length || 1);
 
-            rawTransactions.forEach(t => {
-                if (t.amount < 0 && Math.abs(t.amount) > avgDebit * 2.5) {
-                    anomalies.push(`High debit surge of ${formatINR(Math.abs(t.amount))} for "${t.description}" on ${t.date}`);
-                }
-                if (t.status === 'CHEQUE_BOUNCE') {
-                    anomalies.push(`Cheque Bounce recorded on ${t.date} for "${t.description}"`);
-                }
-            });
+            const spikes = debits.filter(t => Math.abs(t.amount) > avgDebit * 2.2).slice(0, 3);
+            if (spikes.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400">No significant outflow anomalies detected.</p>`;
+                return;
+            }
 
-            container.innerHTML = anomalies.length ? anomalies.map(a => `
-                <div class="flex items-start gap-2 p-2 bg-rose-50 border border-rose-100 rounded-lg text-xs text-rose-700">
-                    <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
-                    <span>${a}</span>
+            container.innerHTML = spikes.map(s => `
+                <div class="p-1.5 bg-amber-50/70 border border-amber-200 rounded text-xs flex items-center justify-between">
+                    <span class="text-amber-900 truncate max-w-[170px]" title="${s.description}">${s.description}</span>
+                    <span class="font-bold text-amber-700">${formatINR(Math.abs(s.amount))}</span>
                 </div>
-            `).join('') : '<p class="text-xs text-slate-400 italic">No anomalies or credit risks detected.</p>';
+            `).join('');
         }
 
-        // Detect Subscriptions & Recurring Charges
+        // Detect recurring subscriptions
         function detectRecurringSubscriptions() {
             const container = document.getElementById('subscriptionsList');
             if (!container) return;
 
-            const subs = rawTransactions.filter(t => t.category === 'SaaS & Subscriptions' || t.category === 'Rent & Housing');
+            const subs = rawTransactions.filter(t => t.category === 'SaaS & Subscriptions' || t.category === 'Rent & Housing').slice(0, 3);
+            if (subs.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400">No active recurring subscriptions found.</p>`;
+                return;
+            }
 
-            container.innerHTML = subs.length ? subs.map(s => `
-                <div class="flex items-center justify-between p-2 bg-indigo-50 border border-indigo-100 rounded-lg text-xs">
-                    <div>
-                        <p class="font-semibold text-indigo-900">${s.description}</p>
-                        <p class="text-[10px] text-indigo-500">${s.category} • ${s.date}</p>
-                    </div>
+            container.innerHTML = subs.map(s => `
+                <div class="p-1.5 bg-indigo-50/70 border border-indigo-200 rounded text-xs flex items-center justify-between">
+                    <span class="text-indigo-900 truncate max-w-[170px]" title="${s.description}">${s.description}</span>
                     <span class="font-bold text-indigo-700">${formatINR(Math.abs(s.amount))}</span>
                 </div>
-            `).join('') : '<p class="text-xs text-slate-400 italic">No recurring subscriptions detected.</p>';
+            `).join('');
         }
 
-        // Filter Transactions Table by Category or Search
+        // Filter transactions based on search text and category dropdown
         function filterTransactions() {
-            const cat = document.getElementById('categoryFilter')?.value || 'ALL';
             const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+            const category = document.getElementById('categoryFilter')?.value || 'ALL';
 
             filteredTransactions = rawTransactions.filter(t => {
-                const matchesCat = (cat === 'ALL' || t.category === cat);
                 const matchesSearch = t.description.toLowerCase().includes(search) || t.date.includes(search);
-                return matchesCat && matchesSearch;
+                const matchesCat = category === 'ALL' || t.category === category;
+                return matchesSearch && matchesCat;
             });
 
             renderTransactionsTable();
         }
 
-        // Tab Switching Logic
+        // Switch between dashboard tabs
         function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('border-brand-600', 'text-brand-600', 'font-semibold');
+                btn.classList.remove('border-brand-600', 'text-brand-600');
                 btn.classList.add('border-transparent', 'text-slate-500');
             });
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
 
-            const targetBtn = document.getElementById(`tab-${tabId}-btn`);
-            const targetContent = document.getElementById(`tab-${tabId}`);
+            const content = document.getElementById(`tab-${tabId}`);
+            const button = document.getElementById(`tab-${tabId}-btn`);
+            const filterControls = document.getElementById('filterControls');
 
-            if (targetBtn) {
-                targetBtn.classList.remove('border-transparent', 'text-slate-500');
-                targetBtn.classList.add('border-brand-600', 'text-brand-600', 'font-semibold');
+            if (content) content.classList.remove('hidden');
+            if (button) {
+                button.classList.remove('border-transparent', 'text-slate-500');
+                button.classList.add('border-brand-600', 'text-brand-600');
             }
-            if (targetContent) {
-                targetContent.classList.remove('hidden');
+
+            if (filterControls) {
+                if (tabId === 'all') filterControls.classList.remove('hidden');
+                else filterControls.classList.add('hidden');
             }
         }
 
-        // Download parsed transactions in CSV / Excel format
+        // Download parsed transactions in Multi-Sheet Excel workbook format (including FCU Audit)
         function exportToCSV() {
-            if (!rawTransactions.length) return;
-            let csv = 'Date,Description,Category,Credit (INR),Debit (INR),Balance (INR),Status\n';
-            rawTransactions.forEach(t => {
-                const credit = t.amount > 0 ? t.amount : 0;
-                const debit = t.amount < 0 ? Math.abs(t.amount) : 0;
-                csv += `"${t.date}","${t.description.replace(/"/g, '""')}","${t.category}",${credit},${debit},${t.balance},"${t.status}"\n`;
+            if (!rawTransactions.length) {
+                showModal('No Data Available', 'Please upload and analyze a bank statement before exporting.');
+                return;
+            }
+
+            // Create a new Excel Workbook using SheetJS
+            const wb = XLSX.utils.book_new();
+
+            // 1. All Transactions Sheet
+            const txnRows = rawTransactions.map(t => ({
+                'Date': t.date,
+                'Narration / Description': t.description,
+                'Category': t.category,
+                'Credit Inflow (₹)': t.amount > 0 ? t.amount : 0,
+                'Debit Outflow (₹)': t.amount < 0 ? Math.abs(t.amount) : 0,
+                'Running Balance (₹)': t.balance,
+                'Status Flag': t.status
+            }));
+            const wsTxns = XLSX.utils.json_to_sheet(txnRows);
+            XLSX.utils.book_append_sheet(wb, wsTxns, 'All Transactions');
+
+            // 2. FCU & Fraud Control Unit Audit Sheet
+            const fcuRows = [];
+            const avgDebit = rawTransactions.filter(t => t.amount < 0)
+                .reduce((acc, curr) => acc + Math.abs(curr.amount), 0) / (rawTransactions.filter(t => t.amount < 0).length || 1);
+
+            rawTransactions.forEach((t, idx) => {
+                let riskCategory = null;
+                let riskSeverity = 'LOW';
+                let notes = 'Normal Transaction';
+
+                if (t.status === 'CHEQUE_BOUNCE') {
+                    riskCategory = 'CHEQUE_DISHONOR';
+                    riskSeverity = 'CRITICAL';
+                    notes = 'Cheque bounced due to insufficient funds or mismatch.';
+                } else if (t.status === 'FAILED_MANDATE') {
+                    riskCategory = 'MANDATE_RETURN';
+                    riskSeverity = 'HIGH';
+                    notes = 'NACH/ECS auto-debit failure detected.';
+                } else if (t.amount < 0 && Math.abs(t.amount) > avgDebit * 2.5) {
+                    riskCategory = 'HIGH_VALUE_SPIKE';
+                    riskSeverity = 'MEDIUM';
+                    notes = `Debit amount (${formatINR(Math.abs(t.amount))}) significantly exceeds average transaction size.`;
+                } else if (t.balance < 2000) {
+                    riskCategory = 'LOW_BALANCE_ALERT';
+                    riskSeverity = 'MEDIUM';
+                    notes = `Running balance dipped below threshold (${formatINR(t.balance)}).`;
+                }
+
+                if (riskCategory) {
+                    fcuRows.push({
+                        'Txn Line #': idx + 1,
+                        'Date': t.date,
+                        'Narration / Description': t.description,
+                        'Risk Category': riskCategory,
+                        'Severity Level': riskSeverity,
+                        'Amount (₹)': Math.abs(t.amount),
+                        'Balance (₹)': t.balance,
+                        'FCU Underwriter Notes': notes
+                    });
+                }
             });
 
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Bank_Statement_Audit_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
+            if (fcuRows.length === 0) {
+                fcuRows.push({
+                    'Status': 'NO_RISKS_DETECTED',
+                    'FCU Audit Notes': 'No cheque bounces, mandate returns, or abnormal debit spikes identified across the analyzed statement period.'
+                });
+            }
+            const wsFcu = XLSX.utils.json_to_sheet(fcuRows);
+            XLSX.utils.book_append_sheet(wb, wsFcu, 'FCU Audit & Risk Flags');
+
+            // 3. Turnover & Financial Metrics Sheet
+            let totalCredits = 0, totalDebits = 0;
+            rawTransactions.forEach(t => {
+                if (t.amount > 0) totalCredits += t.amount;
+                else totalDebits += Math.abs(t.amount);
+            });
+            const grossTurnover = totalCredits + totalDebits;
+            const netLiquidity = totalCredits - totalDebits;
+            const bounceCount = rawTransactions.filter(t => t.status === 'CHEQUE_BOUNCE' || t.status === 'FAILED_MANDATE').length;
+
+            const turnoverSummary = [
+                { 'Metric': 'Gross Account Turnover', 'Amount / Value': formatINR(grossTurnover), 'Context': 'Total cash velocity (Credits + Debits)' },
+                { 'Metric': 'Total Credit Inflow', 'Amount / Value': formatINR(totalCredits), 'Context': 'Total gross incoming deposits' },
+                { 'Metric': 'Total Debit Outflow', 'Amount / Value': formatINR(totalDebits), 'Context': 'Total gross outgoing expenses' },
+                { 'Metric': 'Net Liquidity Surplus/Deficit', 'Amount / Value': formatINR(netLiquidity), 'Context': 'Retained cash balance' },
+                { 'Metric': 'Credit-to-Debit Turnover Ratio', 'Amount / Value': totalDebits > 0 ? (totalCredits / totalDebits).toFixed(2) + 'x' : 'N/A', 'Context': '> 1.0 indicates cash flow positive' },
+                { 'Metric': 'Total Bounces & Failed Mandates', 'Amount / Value': bounceCount, 'Context': 'Total dishonored transaction count' }
+            ];
+            const wsTurnover = XLSX.utils.json_to_sheet(turnoverSummary);
+            XLSX.utils.book_append_sheet(wb, wsTurnover, 'Turnover & Cash Flow');
+
+            // 4. Counterparty Analysis Sheet
+            const senders = {}, recipients = {};
+            rawTransactions.forEach(t => {
+                if (t.amount > 0) senders[t.description] = (senders[t.description] || 0) + t.amount;
+                else recipients[t.description] = (recipients[t.description] || 0) + Math.abs(t.amount);
+            });
+
+            const partyRows = [];
+            Object.entries(senders).sort((a, b) => b[1] - a[1]).forEach(([party, val]) => {
+                partyRows.push({ 'Direction': 'MONEY RECEIVED FROM', 'Counterparty Name': party, 'Total Amount (₹)': val });
+            });
+            Object.entries(recipients).sort((a, b) => b[1] - a[1]).forEach(([party, val]) => {
+                partyRows.push({ 'Direction': 'MONEY SENT TO', 'Counterparty Name': party, 'Total Amount (₹)': val });
+            });
+            const wsParties = XLSX.utils.json_to_sheet(partyRows);
+            XLSX.utils.book_append_sheet(wb, wsParties, 'Counterparty Breakdown');
+
+            // 5. Subscriptions Sheet
+            const subRows = rawTransactions
+                .filter(t => t.category === 'SaaS & Subscriptions' || t.category === 'Rent & Housing')
+                .map(s => ({
+                    'Date': s.date,
+                    'Description': s.description,
+                    'Category': s.category,
+                    'Amount (₹)': Math.abs(s.amount)
+                }));
+            const wsSubs = XLSX.utils.json_to_sheet(subRows.length ? subRows : [{ 'Notice': 'No recurring subscriptions detected' }]);
+            XLSX.utils.book_append_sheet(wb, wsSubs, 'Subscriptions & SaaS');
+
+            // Write and trigger download of the Excel file
+            XLSX.writeFile(wb, `Bank_Statement_Full_FCU_Audit_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
 
         // Print statement analysis or export as PDF
