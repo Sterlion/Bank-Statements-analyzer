@@ -92,7 +92,13 @@
                     <p class="text-xs text-slate-500">Supports PDF, CSV, TXT, or multi-quarter statement batches</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <input type="password" id="statementPassword" placeholder="Statement Password (if encrypted)" class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none w-56">
+                    <input type="password" id="statementPassword" placeholder="Statement Password (if encrypted)" class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none w-52">
+                    
+                    <!-- Submit & Run Analysis Primary Button -->
+                    <button id="runAnalysisBtn" onclick="submitAndAnalyze()" class="px-4 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 rounded-lg shadow-sm flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-play"></i> Submit & Analyze
+                    </button>
+
                     <button onclick="loadSampleData()" class="px-3.5 py-1.5 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg border border-brand-200 transition">
                         <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Load Demo Data
                     </button>
@@ -103,6 +109,11 @@
             <div id="dropZone" onclick="triggerFileUpload()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-xl p-5 bg-slate-50/60 hover:bg-brand-50/30 transition cursor-pointer text-center group">
                 <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 group-hover:text-brand-600 transition mb-2"></i>
                 <p class="text-sm font-medium text-slate-700">Drag & Drop <span class="font-bold text-brand-700">multiple</span> PDF / CSV / Text statements here or <span class="text-brand-600 font-semibold underline">Browse</span></p>
+                <div id="selectedFilesBadge" class="mt-2 hidden">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-800 border border-brand-200">
+                        <i class="fa-solid fa-paperclip"></i> <span id="selectedFilesCountText">0 files attached</span>
+                    </span>
+                </div>
                 <p class="text-xs text-slate-400 mt-1">Parses transactions, calculates running balance, and detects bounce entries automatically.</p>
             </div>
             <input type="file" id="statementFileInput" accept=".csv, .txt, .json, .pdf" multiple class="hidden" onchange="handleFileSelect(event)">
@@ -361,6 +372,38 @@
             }
         }
 
+        // Selected files cache for Submit button trigger
+        let queuedFiles = [];
+
+        // Manual Submit & Run Analysis Handler
+        async function submitAndAnalyze() {
+            const btn = document.getElementById('runAnalysisBtn');
+            const fileInput = document.getElementById('statementFileInput');
+            const filesToProcess = queuedFiles.length > 0 ? queuedFiles : (fileInput?.files || []);
+
+            if (!filesToProcess || filesToProcess.length === 0) {
+                // If no files attached, fallback to running analysis on sample data or prompting
+                showModal('No File Selected', 'Please upload statement files or click "Load Demo Data" to run analysis.', 'info');
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...`;
+            }
+
+            try {
+                await processMultipleFiles(filesToProcess);
+            } catch (err) {
+                console.error('Analysis error:', err);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fa-solid fa-play"></i> Submit & Analyze`;
+                }
+            }
+        }
+
         // Initialize sample demo data on first load
         window.onload = function() {
             loadSampleData();
@@ -384,6 +427,35 @@
                 fullText += pageStrings.join(' ') + '\n';
             }
             return fullText;
+        }
+
+        // File Selection Helper
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                queuedFiles = Array.from(files);
+                updateSelectedFilesBadge();
+            }
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.remove('border-brand-500', 'bg-brand-50/50');
+            const files = event.dataTransfer.files;
+            if (files && files.length > 0) {
+                queuedFiles = Array.from(files);
+                updateSelectedFilesBadge();
+            }
+        }
+
+        function updateSelectedFilesBadge() {
+            const badge = document.getElementById('selectedFilesBadge');
+            const countText = document.getElementById('selectedFilesCountText');
+            if (badge && countText) {
+                countText.innerText = `${queuedFiles.length} statement file(s) attached - Click 'Submit & Analyze'`;
+                badge.classList.remove('hidden');
+            }
         }
 
         // Multi-File & Password Parsing Implementation
