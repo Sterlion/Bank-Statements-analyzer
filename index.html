@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bank Statement Analyzer - Perfios Style Financial Audit</title>
+    <title>Bank Statement Analyzer - Financial Audit</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -89,18 +89,19 @@
                     <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
                         <i class="fa-solid fa-file-arrow-up text-brand-500"></i> Upload Bank Statement(s)
                     </h2>
-                    <p class="text-xs text-slate-500">Supports PDF, CSV, TXT, or multi-quarter statement batches</p>
+                    <p class="text-xs text-slate-500">Supports PDF (HDFC, ICICI, SBI, Axis, Kotak), CSV, TXT, or multi-quarter batches</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <input type="password" id="statementPassword" placeholder="Statement Password (if encrypted)" class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none w-52">
+                    <input type="password" id="statementPassword" placeholder="PDF Password (if encrypted)" class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none w-52">
                     
                     <!-- Submit & Run Analysis Primary Button -->
                     <button id="runAnalysisBtn" onclick="submitAndAnalyze()" class="px-4 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 rounded-lg shadow-sm flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-play"></i> Submit & Analyze
                     </button>
 
-                    <button onclick="loadSampleData()" class="px-3.5 py-1.5 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg border border-brand-200 transition">
-                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Load Demo Data
+                    <!-- Direct Text Paste Fallback Button -->
+                    <button onclick="togglePasteModal(true)" class="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-300 transition">
+                        <i class="fa-solid fa-paste mr-1"></i> Paste Raw Text
                     </button>
                 </div>
             </div>
@@ -114,9 +115,42 @@
                         <i class="fa-solid fa-paperclip"></i> <span id="selectedFilesCountText">0 files attached</span>
                     </span>
                 </div>
-                <p class="text-xs text-slate-400 mt-1">Parses transactions, calculates running balance, and detects bounce entries automatically.</p>
+                <p class="text-xs text-slate-400 mt-1">Supports multi-column parsing, Credit/Debit recognition, and bounce detection.</p>
             </div>
             <input type="file" id="statementFileInput" accept=".csv, .txt, .json, .pdf" multiple class="hidden" onchange="handleFileSelect(event)">
+
+            <!-- Uploaded Files Status List Container -->
+            <div id="uploadedFilesStatusCard" class="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl hidden">
+                <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-2">
+                    <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-circle-check text-emerald-600 text-sm"></i> Uploaded Statement Files Status
+                    </h3>
+                    <span id="fileCountBadge" class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">0 File(s) Processed</span>
+                </div>
+                <div id="uploadedFilesList" class="space-y-1.5 max-h-36 overflow-y-auto">
+                    <!-- Dynamic File Items Rendered Here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Raw Text Paste Modal -->
+        <div id="pasteModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full p-6 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-check text-brand-600"></i> Paste Raw Bank Statement Text
+                    </h3>
+                    <button onclick="togglePasteModal(false)" class="text-slate-400 hover:text-slate-600 text-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-slate-500">Copy lines directly from your PDF statement or netbanking portal and paste them below:</p>
+                <textarea id="rawTextarea" rows="8" placeholder="01/03/2026 UPI/SWIGGY/1283921 890.00 DR 235710.00&#10;02/03/2026 SALARY CREDIT ACME LTD 185000.00 CR 420710.00" class="w-full text-xs font-mono p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none bg-slate-50"></textarea>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="togglePasteModal(false)" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg">Cancel</button>
+                    <button onclick="parsePastedText()" class="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm">Parse Text</button>
+                </div>
+            </div>
         </div>
 
         <!-- Main Dashboard Container -->
@@ -350,66 +384,34 @@
 
     <!-- App Logic Script -->
     <script>
-        // Process raw data into application dashboard state
-        function processStatementData(txList) {
-            rawTransactions = txList;
-            filteredTransactions = [...rawTransactions];
+        // Global variables for file handling
+        let uploadedFilesQueue = [];
+        let processedFilesLog = [];
 
-            calculateMetrics();
-            populateCategoryFilter();
-            renderTopParties();
-            renderCashFlowChart();
-            renderCategoryChart();
-            renderTransactionsTable();
-            renderBounceTab();
-            detectAnomalies();
-            detectRecurringSubscriptions();
-
-            // Reveal dashboard section
-            const dash = document.getElementById('dashboardContainer');
-            if (dash) {
-                dash.classList.remove('hidden');
+        // Toggle Raw Text Paste Modal
+        function togglePasteModal(show) {
+            const modal = document.getElementById('pasteModal');
+            if (modal) {
+                if (show) modal.classList.remove('hidden');
+                else modal.classList.add('hidden');
             }
         }
 
-        // Selected files cache for Submit button trigger
-        let queuedFiles = [];
+        function parsePastedText() {
+            const text = document.getElementById('rawTextarea')?.value || '';
+            if (!text.trim()) return;
 
-        // Manual Submit & Run Analysis Handler
-        async function submitAndAnalyze() {
-            const btn = document.getElementById('runAnalysisBtn');
-            const fileInput = document.getElementById('statementFileInput');
-            const filesToProcess = queuedFiles.length > 0 ? queuedFiles : (fileInput?.files || []);
-
-            if (!filesToProcess || filesToProcess.length === 0) {
-                // If no files attached, fallback to running analysis on sample data or prompting
-                showModal('No File Selected', 'Please upload statement files or click "Load Demo Data" to run analysis.', 'info');
-                return;
-            }
-
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...`;
-            }
-
-            try {
-                await processMultipleFiles(filesToProcess);
-            } catch (err) {
-                console.error('Analysis error:', err);
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = `<i class="fa-solid fa-play"></i> Submit & Analyze`;
-                }
+            const lines = text.split('\n');
+            const parsed = parseTextLinesToTransactions(lines);
+            if (parsed.length > 0) {
+                processStatementData(parsed);
+                togglePasteModal(false);
+            } else {
+                alert('No valid transaction lines detected in the pasted text.');
             }
         }
 
-        // Initialize sample demo data on first load
-        window.onload = function() {
-            loadSampleData();
-        };
-
-        // Extract text from PDF file page-by-page
+        // Extract text from PDF file page-by-page with enhanced spatial rendering
         async function readPdfFile(file, password) {
             const arrayBuffer = await file.arrayBuffer();
             const loadingTask = pdfjsLib.getDocument({
@@ -423,138 +425,141 @@
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const tokenContent = await page.getTextContent();
-                const pageStrings = tokenContent.items.map(item => item.str);
-                fullText += pageStrings.join(' ') + '\n';
+                
+                // Group items by vertical position (Y coordinate) to preserve row alignment
+                const linesMap = {};
+                tokenContent.items.forEach(item => {
+                    const y = Math.round(item.transform[5]); // Y offset
+                    if (!linesMap[y]) linesMap[y] = [];
+                    linesMap[y].push({ x: item.transform[4], text: item.str });
+                });
+
+                // Sort lines top-to-bottom and tokens left-to-right
+                const sortedY = Object.keys(linesMap).sort((a, b) => b - a);
+                sortedY.forEach(y => {
+                    const lineTokens = linesMap[y].sort((a, b) => a.x - b.x);
+                    const lineString = lineTokens.map(t => t.text).join('  ');
+                    if (lineString.trim()) {
+                        fullText += lineString + '\n';
+                    }
+                });
             }
             return fullText;
         }
 
-        // File Selection Helper
-        function handleFileSelect(event) {
-            const files = event.target.files;
-            if (files && files.length > 0) {
-                queuedFiles = Array.from(files);
-                updateSelectedFilesBadge();
-            }
-        }
-
-        function handleDrop(event) {
-            event.preventDefault();
-            event.stopPropagation();
-            event.currentTarget.classList.remove('border-brand-500', 'bg-brand-50/50');
-            const files = event.dataTransfer.files;
-            if (files && files.length > 0) {
-                queuedFiles = Array.from(files);
-                updateSelectedFilesBadge();
-            }
-        }
-
-        function updateSelectedFilesBadge() {
-            const badge = document.getElementById('selectedFilesBadge');
-            const countText = document.getElementById('selectedFilesCountText');
-            if (badge && countText) {
-                countText.innerText = `${queuedFiles.length} statement file(s) attached - Click 'Submit & Analyze'`;
-                badge.classList.remove('hidden');
-            }
-        }
-
-        // Multi-File & Password Parsing Implementation
-        async function processMultipleFiles(files) {
-            const password = document.getElementById('statementPassword')?.value || '';
-
-            let allParsedTransactions = [];
-            
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                try {
-                    let text = '';
-                    if (file.name.toLowerCase().endsWith('.pdf')) {
-                        text = await readPdfFile(file, password);
-                    } else {
-                        text = await new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = e => resolve(e.target.result);
-                            reader.onerror = reject;
-                            reader.readAsText(file);
-                        });
-                    }
-
-                    const parsed = parseTextLinesToTransactions(text.split('\n'));
-                    allParsedTransactions = allParsedTransactions.concat(parsed);
-                } catch (err) {
-                    console.error('File parsing error:', err);
-                    showModal('File Error', `Failed to read ${file.name}. If password protected, please enter the passcode above.`, 'warning');
-                }
-            }
-
-            if (allParsedTransactions.length > 0) {
-                allParsedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
-                processStatementData(allParsedTransactions);
-                
-                const pwdMsg = password ? ' (Decrypted with provided password)' : '';
-                showModal(
-                    'Files Parsed Successfully', 
-                    `Successfully analyzed ${allParsedTransactions.length} transactions across ${files.length} statement file(s)${pwdMsg}.`, 
-                    'success'
-                );
-            }
-        }
-
-        // Generic line-by-line transaction extractor
+        // Extraction and parsing logic for text lines into transaction records
         function parseTextLinesToTransactions(lines) {
             let parsed = [];
-            let runningBalance = 100000;
-            const dateRegex = /(\d{2}[-\/\.]\d{2}[-\/\.]\d{4}|\d{4}[-\/\.]\d{2}[-\/\.]\d{2}|\d{2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i;
+            let runningBalance = 0;
+            
+            // Flexible regex to recognize common Indian & Global bank date formats (e.g. 01/03/2026, 01-Mar-2026, 2026-03-01)
+            const dateRegex = /^(\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{2,4}|\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})/i;
 
-            lines.forEach((line, index) => {
-                const cleanedLine = line.trim();
-                if (!cleanedLine || (index === 0 && (cleanedLine.toLowerCase().includes('date') || cleanedLine.toLowerCase().includes('description')))) {
+            let bufferLine = "";
+
+            lines.forEach((rawLine) => {
+                const cleanedLine = rawLine.trim().replace(/\s+/g, ' ');
+                if (!cleanedLine) return;
+
+                // Skip generic header metadata
+                const lower = cleanedLine.toLowerCase();
+                if (lower.includes('transaction date') || lower.includes('balance b/f') || lower.includes('opening balance') || lower.includes('statement of account') || lower.includes('page ') || lower.includes('account number')) {
                     return;
                 }
 
-                if (cleanedLine.includes(',')) {
+                // Handle CSV format line
+                if (cleanedLine.includes(',') && !cleanedLine.includes('  ')) {
                     const parts = cleanedLine.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
-                    if (parts.length >= 3) {
-                        const dateStr = parts[0] || new Date().toISOString().split('T')[0];
-                        const description = parts[1] || 'Transaction';
-                        let amount = parseFloat(parts[2].replace(/[^0-9.-]/g, '')) || 0;
-                        let balance = parts[3] ? parseFloat(parts[3].replace(/[^0-9.-]/g, '')) : (runningBalance += amount);
-                        runningBalance = balance;
+                    const dateMatch = parts[0].match(dateRegex);
+                    if (dateMatch && parts.length >= 3) {
+                        const dateStr = formatDateString(dateMatch[0]);
+                        // Preserve full bank narration from column 2 (or multi-part narration)
+                        let fullNarration = parts[1] || 'Bank Transaction';
+
+                        let creditVal = 0, debitVal = 0, amount = 0, balVal = 0;
+
+                        if (parts.length >= 5) {
+                            creditVal = parseFloat((parts[2] || '').replace(/[^0-9.]/g, '')) || 0;
+                            debitVal = parseFloat((parts[3] || '').replace(/[^0-9.]/g, '')) || 0;
+                            balVal = parseFloat((parts[4] || '').replace(/[^0-9.]/g, '')) || 0;
+                            amount = creditVal > 0 ? creditVal : -Math.abs(debitVal);
+                        } else {
+                            amount = parseFloat(parts[2].replace(/[^0-9.-]/g, '')) || 0;
+                            balVal = parts[3] ? parseFloat(parts[3].replace(/[^0-9.]/g, '')) : (runningBalance += amount);
+                        }
+                        runningBalance = balVal || runningBalance;
 
                         parsed.push({
-                            date: formatDateString(dateStr),
-                            description: description,
+                            date: dateStr,
+                            description: fullNarration,
                             amount: amount,
                             type: amount >= 0 ? 'CREDIT' : 'DEBIT',
-                            category: categorizeTransaction(description),
-                            balance: balance,
-                            status: detectStatus(description)
+                            category: categorizeTransaction(fullNarration),
+                            balance: runningBalance,
+                            status: detectStatus(fullNarration)
                         });
+                        return;
                     }
-                } else {
-                    const matchDate = cleanedLine.match(dateRegex);
-                    if (matchDate) {
-                        const dateStr = matchDate[0];
-                        const numbers = cleanedLine.match(/-?\d+[\d,]*\.\d{2}/g);
-                        if (numbers && numbers.length >= 1) {
-                            let amount = parseFloat(numbers[0].replace(/,/g, '')) || 0;
-                            if (cleanedLine.toLowerCase().includes('dr') || cleanedLine.toLowerCase().includes('debit') || cleanedLine.toLowerCase().includes('paid')) {
-                                amount = -Math.abs(amount);
-                            }
-                            let balance = numbers.length > 1 ? parseFloat(numbers[1].replace(/,/g, '')) : (runningBalance += amount);
-                            runningBalance = balance;
-                            const description = cleanedLine.replace(dateStr, '').replace(numbers[0], '').trim() || 'Bank Transaction';
+                }
 
-                            parsed.push({
-                                date: formatDateString(dateStr),
-                                description: description,
-                                amount: amount,
-                                type: amount >= 0 ? 'CREDIT' : 'DEBIT',
-                                category: categorizeTransaction(description),
-                                balance: balance,
-                                status: detectStatus(description)
-                            });
+                // Standard / PDF text line parsing
+                const dateMatch = cleanedLine.match(dateRegex);
+                if (dateMatch) {
+                    const dateStr = formatDateString(dateMatch[0]);
+                    
+                    // Match currency amounts (with commas and decimal point)
+                    const moneyMatches = cleanedLine.match(/[\d,]+\.\d{2}/g);
+
+                    if (moneyMatches && moneyMatches.length >= 1) {
+                        const numbers = moneyMatches.map(m => parseFloat(m.replace(/,/g, '')));
+                        
+                        let amount = 0;
+                        let balance = 0;
+
+                        if (numbers.length >= 2) {
+                            // First number is Txn Amount, last number is running Balance
+                            amount = numbers[numbers.length - 2];
+                            balance = numbers[numbers.length - 1];
+                        } else {
+                            amount = numbers[0];
+                            balance = runningBalance;
                         }
+
+                        // Check explicit debit/credit markers in statement narration
+                        const isDebit = lower.includes(' dr') || lower.includes('(dr)') || lower.includes('debit') || lower.includes('withdrawal') || lower.includes('paid to') || lower.includes('upi-out') || lower.includes('chq bounce');
+                        const isCredit = lower.includes(' cr') || lower.includes('(cr)') || lower.includes('credit') || lower.includes('deposit') || lower.includes('received from') || lower.includes('by transfer') || lower.includes('salary');
+
+                        if (isDebit && !isCredit) {
+                            amount = -Math.abs(amount);
+                        } else if (!isDebit && isCredit) {
+                            amount = Math.abs(amount);
+                        } else if (cleanedLine.indexOf(moneyMatches[0]) < cleanedLine.length / 2) {
+                            amount = -Math.abs(amount);
+                        }
+
+                        runningBalance = balance || runningBalance;
+
+                        // EXTRACT FULL NARRATION: Strip dates and amounts but preserve complete narration string
+                        let fullNarration = cleanedLine.replace(dateRegex, '');
+                        moneyMatches.forEach(m => { 
+                            fullNarration = fullNarration.replace(m, ''); 
+                        });
+                        // Clean trailing Cr/Dr indicators from narration while keeping full reference numbers
+                        fullNarration = fullNarration.replace(/\s+(CR|DR|Cr|Dr)\b/gi, '').replace(/\s+/g, ' ').trim();
+
+                        if (!fullNarration || fullNarration.length < 2) {
+                            fullNarration = 'Bank Transaction / Transfer';
+                        }
+
+                        parsed.push({
+                            date: dateStr,
+                            description: fullNarration,
+                            amount: amount,
+                            type: amount >= 0 ? 'CREDIT' : 'DEBIT',
+                            category: categorizeTransaction(fullNarration),
+                            balance: runningBalance,
+                            status: detectStatus(fullNarration)
+                        });
                     }
                 }
             });
@@ -565,6 +570,13 @@
         // Format dates into YYYY-MM-DD
         function formatDateString(str) {
             try {
+                // Parse Indian standard DD/MM/YYYY
+                if (str.includes('/')) {
+                    const parts = str.split('/');
+                    if (parts.length === 3 && parts[0].length <= 2) {
+                        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                    }
+                }
                 const d = new Date(str);
                 if (!isNaN(d.getTime())) {
                     return d.toISOString().split('T')[0];
@@ -968,9 +980,10 @@
         }
 
         function handleFileSelect(event) {
-            const files = event.target.files;
-            if (files && files.length > 0) {
-                processMultipleFiles(files);
+            const files = Array.from(event.target.files || []);
+            if (files.length > 0) {
+                uploadedFilesQueue = files;
+                updateSelectedFilesBadge(files);
             }
         }
 
@@ -990,10 +1003,141 @@
             event.preventDefault();
             event.stopPropagation();
             event.currentTarget.classList.remove('border-brand-500', 'bg-brand-50/50');
-            const files = event.dataTransfer.files;
-            if (files && files.length > 0) {
-                processMultipleFiles(files);
+            const files = Array.from(event.dataTransfer.files || []);
+            if (files.length > 0) {
+                uploadedFilesQueue = files;
+                updateSelectedFilesBadge(files);
             }
+        }
+
+        function updateSelectedFilesBadge(files) {
+            const badge = document.getElementById('selectedFilesBadge');
+            const text = document.getElementById('selectedFilesCountText');
+            if (badge && text) {
+                text.innerText = `${files.length} statement file(s) selected - Click 'Submit & Analyze'`;
+                badge.classList.remove('hidden');
+            }
+        }
+
+        // Render processed file badges under the upload section
+        function renderUploadedFilesStatus(filesLog) {
+            const card = document.getElementById('uploadedFilesStatusCard');
+            const list = document.getElementById('uploadedFilesList');
+            const badge = document.getElementById('fileCountBadge');
+
+            if (!card || !list) return;
+
+            if (!filesLog || filesLog.length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+
+            card.classList.remove('hidden');
+            if (badge) badge.innerText = `${filesLog.length} File(s) Processed`;
+
+            list.innerHTML = filesLog.map(f => {
+                const sizeKb = (f.size / 1024).toFixed(1);
+                const isSuccess = f.status === 'SUCCESS';
+                return `
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+                        <div class="flex items-center gap-2.5 overflow-hidden">
+                            <i class="fa-solid ${f.name.endsWith('.pdf') ? 'fa-file-pdf text-rose-500' : 'fa-file-csv text-emerald-500'} text-base flex-shrink-0"></i>
+                            <div class="truncate">
+                                <p class="font-semibold text-slate-800 truncate" title="${f.name}">${f.name}</p>
+                                <p class="text-[10px] text-slate-400">${sizeKb} KB • ${f.txnsCount} transactions found</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isSuccess ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                                ${isSuccess ? '<i class="fa-solid fa-check mr-1"></i> Loaded' : '<i class="fa-solid fa-xmark mr-1"></i> Error'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Submit and analyze button trigger
+        async function submitAndAnalyze() {
+            const password = document.getElementById('statementPassword')?.value || '';
+            const btn = document.getElementById('runAnalysisBtn');
+            
+            if (!uploadedFilesQueue || uploadedFilesQueue.length === 0) {
+                showModal('No Files Selected', 'Please select or drag & drop bank statement file(s) before clicking Submit & Analyze.');
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Processing...`;
+            }
+
+            let allTransactions = [];
+            processedFilesLog = [];
+
+            try {
+                for (let file of uploadedFilesQueue) {
+                    let fileTxns = [];
+                    let fileSuccess = true;
+
+                    try {
+                        if (file.name.endsWith('.pdf')) {
+                            const pdfText = await readPdfFile(file, password);
+                            fileTxns = parseTextLinesToTransactions(pdfText.split('\n'));
+                        } else {
+                            const text = await file.text();
+                            fileTxns = parseTextLinesToTransactions(text.split('\n'));
+                        }
+                    } catch (e) {
+                        fileSuccess = false;
+                        console.error('File parse error:', e);
+                    }
+
+                    processedFilesLog.push({
+                        name: file.name,
+                        size: file.size,
+                        txnsCount: fileTxns.length,
+                        status: fileSuccess && fileTxns.length > 0 ? 'SUCCESS' : 'FAILED'
+                    });
+
+                    allTransactions = allTransactions.concat(fileTxns);
+                }
+
+                renderUploadedFilesStatus(processedFilesLog);
+
+                if (allTransactions.length > 0) {
+                    processStatementData(allTransactions);
+                } else {
+                    showModal('Parsing Failed', 'Could not extract valid transaction rows. If encrypted, verify the PDF passcode or try the "Paste Raw Text" button.');
+                }
+            } catch (err) {
+                showModal('Processing Error', 'An error occurred while reading the statement files: ' + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> Submit & Analyze`;
+                }
+            }
+        }
+
+        // Main entry point for processing array of statement transactions
+        function processStatementData(transactions) {
+            rawTransactions = transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+            filteredTransactions = [...rawTransactions];
+
+            const dashboard = document.getElementById('dashboardContainer');
+            if (dashboard) dashboard.classList.remove('hidden');
+
+            calculateMetrics();
+            populateCategoryFilter();
+            renderTopParties();
+            renderCashFlowChart();
+            renderCategoryChart();
+            renderTransactionsTable();
+            renderBounceTab();
+            detectAnomalies();
+            detectRecurringSubscriptions();
+            generateAiFinancialReport();
         }
     </script>
 </body>
